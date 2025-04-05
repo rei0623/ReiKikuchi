@@ -29,6 +29,28 @@
       --card-color: #1e1e1e;
       --border-color: #333;
     }
+    
+    /* オフラインモード用のスタイル */
+    .offline-mode .online-only {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    
+    #offline-status {
+      z-index: 9999;
+    }
+    
+    .offline-badge {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background-color: var(--accent-color);
+      color: white;
+      font-size: 0.6rem;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transform: translate(50%, -50%);
+    }
    
     body {
       font-family: 'Poppins', sans-serif;
@@ -39,6 +61,303 @@
       flex-direction: column;
       /* min-height: 100vh; -> height: 100% に変更 */
       height: calc(var(--vh, 1vh) * 100); /* モバイルでの高さ問題を修正 */
+    }
+
+    /* UI/UX改善用のスタイル追加 */
+    .song-item {
+      transition: transform 0.2s ease, background-color 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .song-item:hover {
+      transform: translateY(-2px);
+      background-color: rgba(142, 36, 170, 0.05);
+    }
+
+    .song-item::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background-color: var(--primary-color);
+      transition: width 0.3s ease;
+    }
+
+    .song-item:hover::after {
+      width: 100%;
+    }
+
+    .song-item.active {
+      background-color: rgba(142, 36, 170, 0.1);
+      border-left: 3px solid var(--primary-color);
+    }
+
+    .btn-mode, .btn-control {
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn-mode:hover, .btn-control:hover {
+      transform: scale(1.1);
+    }
+
+    .btn-mode:active, .btn-control:active {
+      transform: scale(0.95);
+    }
+
+    .tab-button {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tab-button::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background-color: var(--primary-color);
+      transition: width 0.3s ease, left 0.3s ease;
+    }
+
+    .tab-button:hover::after {
+      width: 100%;
+      left: 0;
+    }
+
+    .tab-button.active::after {
+      width: 100%;
+      left: 0;
+    }
+
+    /* スマホ向け最適化 */
+    @media (max-width: 640px) {
+      .song-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      
+      .player-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      
+      .volume-control {
+        width: 100%;
+        margin-top: 0.5rem;
+      }
+      
+      .song-item {
+        padding: 0.75rem;
+      }
+      
+      .song-title {
+        font-size: 0.9rem;
+      }
+      
+      .song-duration {
+        font-size: 0.8rem;
+      }
+      
+      /* タッチ操作の最適化 */
+      .btn-mode, .btn-control, .tab-button, .song-item, .heart-btn {
+        min-height: 44px; /* タッチターゲットの最小サイズ */
+      }
+      
+      /* スマホでのスクロールを滑らかに */
+      .playlist-container {
+        -webkit-overflow-scrolling: touch;
+      }
+    }
+
+    /* アニメーション効果 */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.5s ease forwards;
+    }
+
+    .slide-up {
+      animation: slideUp 0.5s ease forwards;
+    }
+
+    .pulse {
+      animation: pulse 1s infinite;
+    }
+
+    /* プレイヤーコントロールの改善 */
+    .player-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .progress-container {
+      position: relative;
+      height: 6px;
+      background-color: var(--border-color);
+      border-radius: 3px;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background-color: var(--primary-color);
+      border-radius: 3px;
+      transition: width 0.1s linear;
+    }
+
+    .progress-thumb {
+      position: absolute;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      background-color: var(--primary-color);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s ease;
+    }
+
+    .progress-container:hover .progress-thumb {
+      transform: translate(-50%, -50%) scale(1.2);
+    }
+
+    /* ローディングインジケーター */
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(142, 36, 170, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--primary-color);
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* スナックバーの改善 */
+    .snackbar {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: var(--card-color);
+      color: var(--text-color);
+      padding: 12px 24px;
+      border-radius: 4px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .snackbar.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* モーダルの改善 */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal.show {
+      opacity: 1;
+      display: flex;
+    }
+
+    .modal-content {
+      background-color: var(--card-color);
+      border-radius: 8px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      max-width: 90%;
+      max-height: 90%;
+      overflow: auto;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+
+    .modal.show .modal-content {
+      transform: scale(1);
+    }
+
+    /* スクロールバーのカスタマイズ */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--background-color);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary-color);
+    }
+
+    /* フォーカス状態の改善 */
+    button:focus, input:focus {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+
+    /* キーボードナビゲーション用 */
+    .keyboard-focus:focus {
+      box-shadow: 0 0 0 3px var(--primary-color);
+    }
+
+    /* アクセシビリティ改善 */
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .app-container {
@@ -741,6 +1060,35 @@
         </button>
       </div>
     </header>
+    
+    <!-- プロフィールセクション -->
+    <div id="profile-section" class="bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 rounded-lg p-4 mb-6 shadow-md transition-all duration-300 ease-in-out">
+      <div class="flex flex-col md:flex-row items-center justify-between">
+        <div class="flex items-center mb-4 md:mb-0">
+          <div class="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-lg mr-4 flex-shrink-0">
+            <img src="https://i.ytimg.com/vi/o3BudA6Qm6Y/hqdefault.jpg" alt="Rei Kikuchi" class="w-full h-full object-cover">
+          </div>
+          <div>
+            <h2 class="text-xl md:text-2xl font-bold">Rei Kikuchi</h2>
+            <p class="text-sm md:text-base opacity-75">音楽クリエイター / Riffusion アーティスト</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-3 justify-center md:justify-end">
+          <a href="https://www.youtube.com/channel/UCYAuSEKhuk3v4ZKzm5Lqb1Q" target="_blank" rel="noopener noreferrer" class="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors duration-200 shadow-md">
+            <i class="fab fa-youtube mr-2 text-lg"></i>
+            <span>YouTube</span>
+          </a>
+          <a href="https://www.instagram.com/youtube_rei_kikuchi/" target="_blank" rel="noopener noreferrer" class="flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full transition-colors duration-200 shadow-md">
+            <i class="fab fa-instagram mr-2 text-lg"></i>
+            <span>Instagram</span>
+          </a>
+          <a href="https://www.riffusion.com/u/REI_KIKUCHI" target="_blank" rel="noopener noreferrer" class="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors duration-200 shadow-md">
+            <i class="fas fa-music mr-2 text-lg"></i>
+            <span>Riffusion</span>
+          </a>
+        </div>
+      </div>
+    </div>
 
     <div class="music-player p-4 md:p-6">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2684,11 +3032,14 @@
 
         saveToLocalStorage('reiKikuchiPlayerFavorites', appState.favorites);
 
-        // Update UI by re-rendering relevant lists
-        // Determine which lists might contain this song and need updating
-        if (appState.currentTab === 'playlist') renderPlaylist();
-        if (appState.currentTab === 'history') renderHistoryList();
-        if (appState.currentTab === 'favorites') renderFavoritesList();
+        // 常に全てのリストを更新する（タブに関係なく）
+        renderPlaylist();
+        renderHistoryList();
+        renderFavoritesList();
+        
+        // お気に入りボタンの表示を更新（全ての曲リストで）
+        updateFavoriteButtons(songId);
+        
         // Also update if the playlist detail modal is open showing this song
         if (elements.modals.playlistDetail.style.display === 'flex' && appState.currentSelectedPlaylist) {
             const playlist = appState.userPlaylists.find(p => p.id === appState.currentSelectedPlaylist);
@@ -2696,6 +3047,29 @@
                  renderPlaylistDetail(playlist);
             }
         }
+    }
+    
+    // お気に入りボタンの表示を更新する関数
+    function updateFavoriteButtons(songId) {
+        // 全てのお気に入りボタンを取得
+        const favoriteButtons = document.querySelectorAll(`.favorite-btn[data-id="${songId}"]`);
+        const isFavorite = appState.favorites.some(fav => fav.id === songId);
+        
+        // 各ボタンの表示を更新
+        favoriteButtons.forEach(button => {
+            const icon = button.querySelector('i');
+            if (icon) {
+                if (isFavorite) {
+                    icon.classList.add('text-red-500');
+                    icon.classList.remove('text-gray-400');
+                    button.setAttribute('aria-label', 'お気に入り解除');
+                } else {
+                    icon.classList.remove('text-red-500');
+                    icon.classList.add('text-gray-400');
+                    button.setAttribute('aria-label', 'お気に入り登録');
+                }
+            }
+        });
     }
 
     function saveUserPlaylists() {
@@ -3068,6 +3442,443 @@
 
     // Let the YouTube API load and call onYouTubeIframeAPIReady automatically
     console.log("Player script initialized. Waiting for YouTube API...");
+
+    // YouTube API関連の機能
+    const youtubeAPI = {
+      // APIキー（実際の使用時には自分のAPIキーに置き換える必要があります）
+      apiKey: 'YOUR_API_KEY_HERE',
+      
+      // チャンネルID
+      channelId: 'UCYAuSEKhuk3v4ZKzm5Lqb1Q',
+      
+      // 最新の動画を取得する関数
+      async getLatestVideos(maxResults = 10) {
+        try {
+          // チャンネルのアップロード済みプレイリストIDを取得
+          const channelResponse = await fetch(
+            `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${this.channelId}&key=${this.apiKey}`
+          );
+          
+          if (!channelResponse.ok) {
+            throw new Error('チャンネル情報の取得に失敗しました');
+          }
+          
+          const channelData = await channelResponse.json();
+          
+          if (!channelData.items || channelData.items.length === 0) {
+            throw new Error('チャンネルが見つかりません');
+          }
+          
+          const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
+          
+          // アップロード済みプレイリストから動画を取得
+          const playlistResponse = await fetch(
+            `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=${maxResults}&playlistId=${uploadsPlaylistId}&key=${this.apiKey}`
+          );
+          
+          if (!playlistResponse.ok) {
+            throw new Error('プレイリスト情報の取得に失敗しました');
+          }
+          
+          const playlistData = await playlistResponse.json();
+          
+          if (!playlistData.items || playlistData.items.length === 0) {
+            return [];
+          }
+          
+          // 必要な情報だけを抽出して返す
+          return playlistData.items.map(item => {
+            const snippet = item.snippet;
+            return {
+              id: snippet.resourceId.videoId,
+              title: snippet.title,
+              description: snippet.description,
+              thumbnail: snippet.thumbnails.high.url,
+              publishedAt: snippet.publishedAt,
+              // 動画の長さは別のAPIコールが必要なので、ここでは仮の値を設定
+              duration: '3:00'
+            };
+          });
+        } catch (error) {
+          console.error('YouTube APIエラー:', error);
+          showSnackbar('YouTube動画の取得に失敗しました');
+          return [];
+        }
+      },
+      
+      // 動画の詳細情報を取得する関数（長さなど）
+      async getVideoDetails(videoIds) {
+        if (!videoIds || videoIds.length === 0) return [];
+        
+        try {
+          const response = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${videoIds.join(',')}&key=${this.apiKey}`
+          );
+          
+          if (!response.ok) {
+            throw new Error('動画詳細の取得に失敗しました');
+          }
+          
+          const data = await response.json();
+          
+          if (!data.items || data.items.length === 0) {
+            return [];
+          }
+          
+          return data.items.map(item => {
+            // ISO 8601形式の期間を分:秒形式に変換
+            const duration = this.convertDuration(item.contentDetails.duration);
+            
+            return {
+              id: item.id,
+              duration: duration,
+              viewCount: item.statistics.viewCount
+            };
+          });
+        } catch (error) {
+          console.error('YouTube APIエラー (動画詳細):', error);
+          return [];
+        }
+      },
+      
+      // ISO 8601形式の期間を分:秒形式に変換する関数
+      convertDuration(isoDuration) {
+        const match = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+        
+        const hours = (match[1] && match[1].replace('H', '')) || 0;
+        const minutes = (match[2] && match[2].replace('M', '')) || 0;
+        const seconds = (match[3] && match[3].replace('S', '')) || 0;
+        
+        let result = '';
+        
+        if (hours > 0) {
+          result += `${hours}:`;
+          result += `${minutes.toString().padStart(2, '0')}:`;
+        } else {
+          result += `${minutes}:`;
+        }
+        
+        result += seconds.toString().padStart(2, '0');
+        
+        return result;
+      },
+      
+      // 新しい曲をプレイリストに追加する関数
+      async updatePlaylist() {
+        try {
+          showSnackbar('YouTubeから最新の曲を取得中...');
+          
+          // 最新の動画を取得
+          const latestVideos = await this.getLatestVideos(15); // 最新15件を取得
+          
+          if (latestVideos.length === 0) {
+            showSnackbar('新しい曲は見つかりませんでした');
+            return;
+          }
+          
+          // 動画IDのリストを作成
+          const videoIds = latestVideos.map(video => video.id);
+          
+          // 動画の詳細情報を取得
+          const videoDetails = await this.getVideoDetails(videoIds);
+          
+          // 詳細情報を結合
+          const videosWithDetails = latestVideos.map(video => {
+            const details = videoDetails.find(detail => detail.id === video.id) || {};
+            return {
+              ...video,
+              duration: details.duration || video.duration
+            };
+          });
+          
+          // 既存の曲リストと比較して新しい曲だけを追加
+          const newSongs = videosWithDetails.filter(video => 
+            !appState.songs.some(song => song.id === video.id)
+          );
+          
+          if (newSongs.length === 0) {
+            showSnackbar('新しい曲は見つかりませんでした');
+            return;
+          }
+          
+          // 新しい曲をプレイリストに追加
+          newSongs.forEach(video => {
+            appState.songs.unshift({
+              id: video.id,
+              title: video.title,
+              duration: video.duration,
+              thumbnail: video.thumbnail
+            });
+          });
+          
+          // フィルタリングされた曲リストも更新
+          appState.filteredSongs = [...appState.songs];
+          
+          // UIを更新
+          renderPlaylist();
+          
+          showSnackbar(`${newSongs.length}曲の新しい曲を追加しました`);
+        } catch (error) {
+          console.error('プレイリスト更新エラー:', error);
+          showSnackbar('プレイリストの更新に失敗しました');
+        }
+      },
+      
+      // 定期的に新曲をチェックする関数
+      startAutoSync(intervalMinutes = 60) {
+        // 初回実行
+        this.updatePlaylist();
+        
+        // 定期的に実行（デフォルトは1時間ごと）
+        const intervalId = setInterval(() => {
+          this.updatePlaylist();
+        }, intervalMinutes * 60 * 1000);
+        
+        // intervalIdを返して、必要に応じて停止できるようにする
+        return intervalId;
+      }
+    };
+
+    // 同期ボタンを追加する関数
+    function setupYouTubeSync() {
+      // 同期ボタンを追加
+      const syncButton = document.createElement('button');
+      syncButton.id = 'youtube-sync-btn';
+      syncButton.className = 'px-3 py-1 rounded-md text-sm';
+      syncButton.style.backgroundColor = 'var(--primary-color)';
+      syncButton.style.color = 'white';
+      syncButton.innerHTML = '<i class="fab fa-youtube mr-1"></i> 新曲を同期';
+      
+      // ボタンを適切な場所に追加
+      const buttonContainer = document.querySelector('.flex.justify-end.mb-2.gap-2');
+      if (buttonContainer) {
+        buttonContainer.prepend(syncButton);
+        
+        // クリックイベントを追加
+        syncButton.addEventListener('click', () => {
+          youtubeAPI.updatePlaylist();
+        });
+      }
+      
+      // 自動同期を開始（1時間ごと）
+      youtubeAPI.startAutoSync(60);
+    }
+
+    // オフライン再生機能のためのスクリプト
+    const offlinePlayback = {
+      // Service Workerの登録
+      registerServiceWorker: async function() {
+        if ('serviceWorker' in navigator) {
+          try {
+            const registration = await navigator.serviceWorker.register('/service-worker.js');
+            console.log('Service Worker 登録成功:', registration.scope);
+            return registration;
+          } catch (error) {
+            console.error('Service Worker 登録失敗:', error);
+            return null;
+          }
+        } else {
+          console.warn('Service Worker はこのブラウザでサポートされていません');
+          return null;
+        }
+      },
+
+      // オフラインステータスの監視
+      setupOfflineDetection: function() {
+        const updateOfflineStatus = () => {
+          const isOffline = !navigator.onLine;
+          document.body.classList.toggle('offline-mode', isOffline);
+          
+          // オフラインステータスを表示
+          const statusElement = document.getElementById('offline-status');
+          if (!statusElement) {
+            const statusDiv = document.createElement('div');
+            statusDiv.id = 'offline-status';
+            statusDiv.className = 'fixed top-0 left-0 right-0 p-2 text-center text-white bg-red-600 transform transition-transform duration-300';
+            statusDiv.style.zIndex = '9999';
+            statusDiv.style.transform = isOffline ? 'translateY(0)' : 'translateY(-100%)';
+            statusDiv.textContent = 'オフラインモード - インターネット接続がありません';
+            document.body.appendChild(statusDiv);
+          } else {
+            statusElement.style.transform = isOffline ? 'translateY(0)' : 'translateY(-100%)';
+          }
+          
+          if (isOffline) {
+            showSnackbar('オフラインモードに切り替わりました。キャッシュされた曲のみ再生できます。');
+          } else {
+            showSnackbar('オンラインに戻りました。すべての機能が利用可能です。');
+          }
+        };
+        
+        // 初期状態の設定
+        updateOfflineStatus();
+        
+        // オンライン/オフライン状態の変化を監視
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+        
+        return updateOfflineStatus;
+      },
+
+      // 現在の曲をキャッシュに追加
+      cacheCurrentSong: function() {
+        if (!navigator.serviceWorker.controller) return;
+        
+        const currentSongIndex = appState.currentSongIndex;
+        if (currentSongIndex === -1) return;
+        
+        const currentSong = appState.songs[currentSongIndex];
+        if (!currentSong || !currentSong.id) return;
+        
+        // YouTube動画IDからサムネイル画像URLを取得してキャッシュ
+        const thumbnailUrl = `https://i.ytimg.com/vi/${currentSong.id}/hqdefault.jpg`;
+        
+        // Service Workerにキャッシュするよう指示
+        navigator.serviceWorker.controller.postMessage({
+          type: 'CACHE_MUSIC',
+          url: thumbnailUrl
+        });
+        
+        console.log('現在の曲をキャッシュに追加:', currentSong.title);
+      },
+
+      // お気に入りの曲をすべてキャッシュ
+      cacheFavoriteSongs: function() {
+        if (!navigator.serviceWorker.controller) return;
+        
+        appState.favorites.forEach(songId => {
+          const song = appState.songs.find(s => s.id === songId);
+          if (song) {
+            const thumbnailUrl = `https://i.ytimg.com/vi/${song.id}/hqdefault.jpg`;
+            
+            navigator.serviceWorker.controller.postMessage({
+              type: 'CACHE_MUSIC',
+              url: thumbnailUrl
+            });
+            
+            console.log('お気に入りの曲をキャッシュに追加:', song.title);
+          }
+        });
+        
+        showSnackbar(`${appState.favorites.length}曲のお気に入りをオフライン再生用にキャッシュしました`);
+      },
+
+      // オフラインモード用のUIを追加
+      addOfflineUI: function() {
+        // オフラインモード切替ボタンを追加
+        const headerControls = document.querySelector('.flex.items-center.gap-4');
+        if (headerControls) {
+          const offlineBtn = document.createElement('button');
+          offlineBtn.id = 'offline-mode-btn';
+          offlineBtn.className = 'btn-mode';
+          offlineBtn.setAttribute('aria-label', 'オフラインモード');
+          offlineBtn.innerHTML = '<i class="fas fa-cloud-download-alt"></i>';
+          
+          headerControls.appendChild(offlineBtn);
+          
+          // クリックイベントを追加
+          offlineBtn.addEventListener('click', () => {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.id = 'offline-modal';
+            modal.innerHTML = `
+              <div class="modal-content p-6 max-w-md">
+                <div class="flex justify-between items-center mb-4">
+                  <h2 class="text-xl font-bold">オフライン再生</h2>
+                  <button class="modal-close text-2xl">&times;</button>
+                </div>
+                <p class="mb-4">オフライン再生のために曲をキャッシュします。キャッシュした曲はインターネット接続がなくても再生できます。</p>
+                <div class="flex flex-col gap-3">
+                  <button id="cache-current-btn" class="btn-primary py-2 px-4 rounded">
+                    <i class="fas fa-music mr-2"></i>現在の曲をキャッシュ
+                  </button>
+                  <button id="cache-favorites-btn" class="btn-primary py-2 px-4 rounded">
+                    <i class="fas fa-heart mr-2"></i>お気に入りをすべてキャッシュ
+                  </button>
+                  <button id="clear-cache-btn" class="btn-secondary py-2 px-4 rounded">
+                    <i class="fas fa-trash mr-2"></i>キャッシュをクリア
+                  </button>
+                </div>
+              </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // モーダルを表示
+            setTimeout(() => {
+              modal.style.display = 'flex';
+            }, 10);
+            
+            // 閉じるボタンのイベント
+            modal.querySelector('.modal-close').addEventListener('click', () => {
+              modal.style.display = 'none';
+              setTimeout(() => {
+                modal.remove();
+              }, 300);
+            });
+            
+            // 現在の曲をキャッシュするボタン
+            modal.querySelector('#cache-current-btn').addEventListener('click', () => {
+              this.cacheCurrentSong();
+            });
+            
+            // お気に入りをキャッシュするボタン
+            modal.querySelector('#cache-favorites-btn').addEventListener('click', () => {
+              this.cacheFavoriteSongs();
+            });
+            
+            // キャッシュをクリアするボタン
+            modal.querySelector('#clear-cache-btn').addEventListener('click', async () => {
+              if ('caches' in window) {
+                try {
+                  const cacheNames = await caches.keys();
+                  await Promise.all(
+                    cacheNames.map(cacheName => caches.delete(cacheName))
+                  );
+                  showSnackbar('キャッシュをクリアしました');
+                } catch (error) {
+                  console.error('キャッシュのクリアに失敗しました:', error);
+                  showSnackbar('キャッシュのクリアに失敗しました');
+                }
+              }
+            });
+          });
+        }
+      },
+
+      // 初期化
+      init: async function() {
+        // Service Workerを登録
+        await this.registerServiceWorker();
+        
+        // オフライン検出を設定
+        this.setupOfflineDetection();
+        
+        // オフラインモード用のUIを追加
+        this.addOfflineUI();
+        
+        console.log('オフライン再生機能が初期化されました');
+      }
+    };
+
+    // ページ読み込み完了時に実行
+    document.addEventListener('DOMContentLoaded', function() {
+      // 既存の初期化コードの後に追加
+      if (typeof onPlayerReady === 'function') {
+        const originalOnPlayerReady = onPlayerReady;
+        onPlayerReady = function(event) {
+          originalOnPlayerReady(event);
+          setupYouTubeSync();
+          offlinePlayback.init();
+        };
+      } else {
+        // onPlayerReadyが定義されていない場合は直接実行
+        window.addEventListener('load', () => {
+          setupYouTubeSync();
+          offlinePlayback.init();
+        });
+      }
+    });
 
   </script>
 </body>
