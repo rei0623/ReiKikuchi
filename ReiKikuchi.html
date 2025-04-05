@@ -165,33 +165,95 @@
     }
 
     .progress-container {
+      /* トラック全体の高さ（例: デスクトップ 5px）*/
       height: 5px;
+      /* 未再生部分の色 (トラックの背景色) */
       background-color: var(--border-color);
-      border-radius: 5px;
+      border-radius: 5px; /* トラック全体の角丸 */
       cursor: pointer;
       position: relative;
-      /* 上下に透明なタップ領域を追加 */
+      /* 上下のタップ領域確保 (変更なし) */
       padding-top: 10px;
       padding-bottom: 10px;
-      /* パディング分、見た目の位置を調整（marginで相殺） */
       margin-top: -10px;
       margin-bottom: -10px;
-      /* touch-action: none; */ /* JS側でpreventDefaultする場合 */
+      /* つまみがはみ出す場合があるので visible に */
+      overflow: visible;
     }
 
     .progress-bar {
-      height: 100%;
+      /* 再生済み部分 */
+      height: 100%; /* 親の高さ(5px)に追従 */
+      /* 再生済みの色 */
       background-color: var(--primary-color);
-      border-radius: 5px;
+      /* 親と同じ左側の角丸を適用 */
+      border-top-left-radius: 5px;
+      border-bottom-left-radius: 5px;
+      /* 右側の角丸は不要 (つまみが来るため) */
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
       width: 0%;
-      transition: width 0.1s linear;
-      pointer-events: none; /* バー自体はクリックイベントを拾わない */
+      transition: width 0.2s linear;
+      pointer-events: none; /* クリックイベントは親(container)で拾う */
+      position: relative; /* つまみの基準位置 */
+    }
+ /* つまみ */
+ .progress-bar::after {
+      content: '';
+      position: absolute;
+      /* バー(再生済み部分)の右端を基準 */
+      right: 0;
+      top: 50%;
+      /* つまみ自身の中心が、バーの右端に来るように調整 */
+      transform: translate(50%, -50%);
+      /* トラックの高さ(5px)より少し大きくして目立たせる */
+      width: 14px;
+      height: 14px;
+      /* つまみの色 */
+      background-color: var(--primary-color);
+      border-radius: 50%; /* 円形 */
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); /* 影を付けて立体感を出す */
+      /* 初期状態では非表示 */
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0s linear 0s, opacity 0s linear;
+      z-index: 1; /* 他の要素に隠れないように */
     }
 
-    .volume-control {
-      width: 100px;
+    /* バーの幅が 0% でない場合につまみを表示 */
+    /* widthが少しでもあれば（0.1%とかでも）表示されるように調整 */
+    .progress-bar:not([style*="width: 0%;"])::after,
+    .progress-bar[style*="width: 0."]::after, /* 0.xxx% を考慮 */
+    .progress-bar[style*="width: "]:not([style*="width: 0%;"])::after /* 0以外の数字で始まるwidthを考慮 */
+    {
+      visibility: visible;
+      opacity: 1;
+      transition: opacity 0.2s linear;
     }
 
+ /* モバイル用の調整 */
+ @media (max-width: 1023px) {
+       .progress-container {
+           height: 8px; /* モバイルではトラックを少し太く */
+           border-radius: 8px;
+           /* タップ領域は維持 */
+           padding-top: 12px;
+           padding-bottom: 12px;
+           margin-top: -12px;
+           margin-bottom: 5px;
+       }
+       .progress-bar {
+            /* 親に合わせる */
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+       }
+       /* モバイル用つまみサイズ */
+       .progress-bar::after {
+            /* トラックが太くなった分、つまみも少し大きく */
+            width: 16px;
+            height: 16px;
+       }
+    }
    /* 音量スライダーもタップしやすく */
    .volume-control input[type="range"] {
       -webkit-appearance: none;
@@ -2023,34 +2085,68 @@
     }
 
     function updateProgress() {
+        console.log("updateProgress running..."); // 関数が実行されているか確認
+        const progressBar = elements.progressBar;
+
         if (!appState.isPlayerReady || !appState.player || typeof appState.player.getCurrentTime !== 'function' || appState.currentSongIndex === -1) {
-            // Ensure reset if player not ready or no song playing
-             elements.progressBar.style.width = '0%';
-             elements.currentTime.textContent = '00:00';
-             // Only reset total time if it's truly unknown
-             // elements.totalTime.textContent = '00:00';
-             return;
+            // console.log("updateProgress: Player not ready or no song.");
+            if (progressBar.style.width !== '0%') { // 不要な更新を避ける
+                progressBar.style.width = '0%';
+                console.log("updateProgress: Reset width to 0%"); // リセット時にログ出力
+            }
+            elements.currentTime.textContent = '00:00';
+            const song = appState.songs[appState.currentSongIndex];
+            elements.totalTime.textContent = song?.duration || '00:00';
+            return;
         }
 
         try {
-            const currentTime = appState.player.getCurrentTime() || 0;
-            const duration = appState.player.getDuration() || 0;
+            const currentTime = appState.player.getCurrentTime();
+            const duration = appState.player.getDuration();
 
-            if (duration > 0) {
-                const percent = (currentTime / duration) * 100;
-                elements.progressBar.style.width = `${percent}%`;
+            // 値を出力して確認
+            console.log(`API Values: currentTime=${currentTime?.toFixed(2)}, duration=${duration?.toFixed(2)}`);
+
+            if (typeof currentTime === 'number' && typeof duration === 'number' && duration > 0) {
+                const percent = Math.min(100, Math.max(0, (currentTime / duration) * 100));
+
+                if (!isNaN(percent)) {
+                    const newWidth = `${percent}%`;
+                    // 適用しようとしている幅と、現在の幅を出力
+                    console.log(`Calculated: percent=${percent.toFixed(2)}%, newWidth=${newWidth}, currentStyleWidth=${progressBar.style.width}`);
+                    // スタイルを適用
+                    progressBar.style.width = newWidth;
+                    // 適用後のスタイルを再確認 (デバッグ用、通常は不要)
+                    // console.log(`Applied width: ${progressBar.style.width}`);
+                } else {
+                    console.warn(`updateProgress: Calculated percent is NaN (currentTime=${currentTime}, duration=${duration})`);
+                    if (progressBar.style.width !== '0%') {
+                        progressBar.style.width = '0%';
+                        console.log("updateProgress: Reset width to 0% due to NaN");
+                    }
+                }
+
                 elements.currentTime.textContent = formatTime(currentTime);
-                elements.totalTime.textContent = formatTime(duration);
-            } else {
-                // Reset if duration is 0 (e.g., before song loads fully)
-                elements.progressBar.style.width = '0%';
+                const formattedDuration = formatTime(duration);
+                if (elements.totalTime.textContent !== formattedDuration) {
+                    elements.totalTime.textContent = formattedDuration;
+                    const songDurationDisplay = document.getElementById('current-song-duration');
+                    if (songDurationDisplay) songDurationDisplay.textContent = formattedDuration;
+                }
+            } else if (currentTime === 0 && duration === 0) {
+                if (progressBar.style.width !== '0%') {
+                    progressBar.style.width = '0%';
+                    console.log("updateProgress: Reset width to 0% (times are zero)");
+                }
                 elements.currentTime.textContent = '00:00';
-                // Keep potentially known duration from metadata if available
-                elements.totalTime.textContent = appState.songs[appState.currentSongIndex]?.duration || '00:00';
+                const song = appState.songs[appState.currentSongIndex];
+                elements.totalTime.textContent = song?.duration || '00:00';
+            } else {
+                 // 不正値の場合もログ出力
+                 console.warn(`updateProgress: Invalid time values (currentTime=${currentTime}, duration=${duration}) - width not updated.`);
             }
         } catch (error) {
-             console.error("Error updating progress:", error);
-             // Don't stop the interval, it might recover
+            console.error("Error updating progress:", error);
         }
     }
 
