@@ -165,95 +165,91 @@
     }
 
     .progress-container {
-      /* トラック全体の高さ（例: デスクトップ 5px）*/
-      height: 5px;
-      /* 未再生部分の色 (トラックの背景色) */
-      background-color: var(--border-color);
-      border-radius: 5px; /* トラック全体の角丸 */
-      cursor: pointer;
-      position: relative;
-      /* 上下のタップ領域確保 (変更なし) */
-      padding-top: 10px;
-      padding-bottom: 10px;
-      margin-top: -10px;
-      margin-bottom: -10px;
-      /* つまみがはみ出す場合があるので visible に */
-      overflow: visible;
-    }
+  /* トラックの高さを増やし、色を調整 */
+  height: 6px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  /* タップ領域を明確にするために上下パディングを追加 */
+  padding: 8px 0;
+  margin: -8px 0;
+}
 
-    .progress-bar {
-      /* 再生済み部分 */
-      height: 100%; /* 親の高さ(5px)に追従 */
-      /* 再生済みの色 */
-      background-color: var(--primary-color);
-      /* 親と同じ左側の角丸を適用 */
-      border-top-left-radius: 5px;
-      border-bottom-left-radius: 5px;
-      /* 右側の角丸は不要 (つまみが来るため) */
-      border-top-right-radius: 0;
-      border-bottom-right-radius: 0;
-      width: 0%;
-      transition: width 0.2s linear;
-      pointer-events: none; /* クリックイベントは親(container)で拾う */
-      position: relative; /* つまみの基準位置 */
-    }
+.progress-bar {
+  /* 再生済み部分の色を濃く・鮮やかに */
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.1s linear; /* よりスムーズな更新 */
+  position: relative;
+}
+
+/* ホバー時のスタイル */
+.progress-container:hover {
+  height: 8px;
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
  /* つまみ */
  .progress-bar::after {
-      content: '';
-      position: absolute;
-      /* バー(再生済み部分)の右端を基準 */
-      right: 0;
-      top: 50%;
-      /* つまみ自身の中心が、バーの右端に来るように調整 */
-      transform: translate(50%, -50%);
-      /* トラックの高さ(5px)より少し大きくして目立たせる */
-      width: 14px;
-      height: 14px;
-      /* つまみの色 */
-      background-color: var(--primary-color);
-      border-radius: 50%; /* 円形 */
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); /* 影を付けて立体感を出す */
-      /* 初期状態では非表示 */
-      visibility: hidden;
-      opacity: 0;
-      transition: visibility 0s linear 0s, opacity 0s linear;
-      z-index: 1; /* 他の要素に隠れないように */
-    }
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translate(50%, -50%) scale(0); /* 初期状態は非表示 */
+  width: 16px;
+  height: 16px;
+  background: white;
+  border: 2px solid var(--primary-color);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+  z-index: 2;
+}
 
-    /* バーの幅が 0% でない場合につまみを表示 */
-    /* widthが少しでもあれば（0.1%とかでも）表示されるように調整 */
-    .progress-bar:not([style*="width: 0%;"])::after,
-    .progress-bar[style*="width: 0."]::after, /* 0.xxx% を考慮 */
-    .progress-bar[style*="width: "]:not([style*="width: 0%;"])::after /* 0以外の数字で始まるwidthを考慮 */
-    {
-      visibility: visible;
-      opacity: 1;
-      transition: opacity 0.2s linear;
-    }
+/* ホバー時やアクティブ時に表示 */
+.progress-container:hover .progress-bar::after,
+.progress-container:active .progress-bar::after {
+  transform: translate(50%, -50%) scale(1);
+}
+
+.progress-bar:not([style*="width: 0%"])::after,
+.progress-bar[style*="width: 0."]::after {
+  transform: translate(50%, -50%) scale(1);
+}
+
+.dark .progress-container {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .progress-bar {
+  box-shadow: 0 0 8px rgba(187, 134, 252, 0.3);
+}
+
+.dark .progress-bar::after {
+  background: var(--background-color);
+  border-color: var(--primary-color);
+}
+
+    
 
  /* モバイル用の調整 */
  @media (max-width: 1023px) {
-       .progress-container {
-           height: 8px; /* モバイルではトラックを少し太く */
-           border-radius: 8px;
-           /* タップ領域は維持 */
-           padding-top: 12px;
-           padding-bottom: 12px;
-           margin-top: -12px;
-           margin-bottom: 5px;
-       }
-       .progress-bar {
-            /* 親に合わせる */
-            border-top-left-radius: 8px;
-            border-bottom-left-radius: 8px;
-       }
-       /* モバイル用つまみサイズ */
-       .progress-bar::after {
-            /* トラックが太くなった分、つまみも少し大きく */
-            width: 16px;
-            height: 16px;
-       }
-    }
+  .progress-container {
+    height: 8px;
+    padding: 10px 0;
+    margin: -10px 0 5px;
+  }
+  
+  .progress-bar::after {
+    width: 18px;
+    height: 18px;
+    transform: translate(50%, -50%) scale(1); /* モバイルでは常に表示 */
+  }
+}
+
    /* 音量スライダーもタップしやすく */
    .volume-control input[type="range"] {
       -webkit-appearance: none;
@@ -667,11 +663,22 @@
        .progress-bar { border-radius: 8px; }
 
        /* Time display */
-       .time-display {
-          font-size: 0.8rem;
-          padding: 0 5px;
-          margin-bottom: 10px;
-       }
+       /* 時間表示のコンテナ */
+.time-display {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+/* 個々の時間表示 */
+#current-time, #total-time {
+  font-size: 0.85rem;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+  color: var(--text-color);
+  opacity: 0.8;
+}
+
 
     } /* End mobile styles */
 
