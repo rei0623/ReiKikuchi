@@ -1,0 +1,2735 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rei Kikuchi Premium Music Player</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #8e24aa;
+      --secondary-color: #5e35b1;
+      --accent-color: #d81b60;
+      --text-color: #333;
+      --background-color: #f5f5f5;
+      --card-color: #fff;
+      --border-color: #e0e0e0;
+    }
+
+    .dark {
+      --primary-color: #bb86fc;
+      --secondary-color: #7c4dff;
+      --accent-color: #cf6679;
+      --text-color: #e0e0e0;
+      --background-color: #121212;
+      --card-color: #1e1e1e;
+      --border-color: #333;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      min-height: 100vh;
+    }
+
+    .app-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .music-player {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      background-color: var(--card-color);
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .playlist, .history-list, .favorites-list, .user-playlists-list, .playlist-detail-list {
+      max-height: 400px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--primary-color) var(--background-color);
+    }
+
+    .playlist::-webkit-scrollbar,
+    .history-list::-webkit-scrollbar,
+    .favorites-list::-webkit-scrollbar,
+    .user-playlists-list::-webkit-scrollbar,
+    .playlist-detail-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .playlist::-webkit-scrollbar-track,
+    .history-list::-webkit-scrollbar-track,
+    .favorites-list::-webkit-scrollbar-track,
+    .user-playlists-list::-webkit-scrollbar-track,
+    .playlist-detail-list::-webkit-scrollbar-track {
+      background: var(--background-color);
+    }
+
+    .playlist::-webkit-scrollbar-thumb,
+    .history-list::-webkit-scrollbar-thumb,
+    .favorites-list::-webkit-scrollbar-thumb,
+    .user-playlists-list::-webkit-scrollbar-thumb,
+    .playlist-detail-list::-webkit-scrollbar-thumb {
+      background-color: var(--primary-color);
+      border-radius: 6px;
+    }
+
+    .playlist-item, .history-item, .favorite-item {
+      transition: all 0.2s ease;
+      border-left: 3px solid transparent;
+    }
+
+    .playlist-item:hover, .history-item:hover, .favorite-item:hover {
+      background-color: rgba(142, 36, 170, 0.1);
+    }
+
+    .dark .playlist-item:hover, .dark .history-item:hover, .dark .favorite-item:hover {
+       background-color: rgba(187, 134, 252, 0.1);
+    }
+
+    .playlist-item.active, .history-item.active, .favorite-item.active {
+      border-left: 3px solid var(--primary-color);
+      background-color: rgba(142, 36, 170, 0.2);
+    }
+
+     .dark .playlist-item.active, .dark .history-item.active, .dark .favorite-item.active {
+       background-color: rgba(187, 134, 252, 0.2);
+     }
+
+    .player-controls button {
+      transition: all 0.2s ease;
+    }
+
+    .player-controls button:hover {
+      transform: scale(1.1);
+    }
+
+    .progress-container {
+      height: 5px;
+      background-color: var(--border-color);
+      border-radius: 5px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background-color: var(--primary-color);
+      border-radius: 5px;
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    .volume-control {
+      width: 100px;
+    }
+
+    .volume-control input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: var(--border-color);
+      border-radius: 5px;
+      outline: none;
+      transition: background 0.3s ease;
+    }
+     /* Style for the track */
+    .volume-control input[type="range"]::-webkit-slider-runnable-track {
+        height: 5px;
+        background: var(--border-color);
+        border-radius: 5px;
+    }
+    .volume-control input[type="range"]::-moz-range-track {
+        height: 5px;
+        background: var(--border-color);
+        border-radius: 5px;
+    }
+     /* Style for the thumb */
+    .volume-control input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      cursor: pointer;
+      margin-top: -5px; /* Center thumb vertically */
+       transition: background 0.3s ease;
+    }
+    .volume-control input[type="range"]::-moz-range-thumb {
+        width: 15px;
+        height: 15px;
+        background: var(--primary-color);
+        border-radius: 50%;
+        cursor: pointer;
+        border: none; /* Remove default border in Firefox */
+         transition: background 0.3s ease;
+    }
+
+
+    .btn-mode {
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .btn-active {
+      color: white;
+      background-color: var(--primary-color);
+    }
+     .dark .btn-active {
+        color: var(--background-color); /* Ensure contrast in dark mode */
+        background-color: var(--primary-color);
+     }
+
+    .btn-inactive {
+      color: var(--text-color);
+      background-color: var(--border-color);
+    }
+
+    .search-container {
+      position: relative;
+    }
+
+    .search-input {
+      padding-left: 40px;
+      background-color: var(--card-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+       transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-color);
+      transition: color 0.3s ease;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+       transition: border-color 0.3s ease;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab.active {
+      color: var(--primary-color);
+      border-bottom: 2px solid var(--primary-color);
+    }
+
+    .visualizer-container {
+      height: 100px;
+      background-color: rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      transition: background-color 0.3s ease;
+    }
+
+    .dark .visualizer-container {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    canvas#visualizer { /* Specificity added */
+      width: 100%;
+      height: 100%;
+      display: block; /* Remove potential extra space */
+    }
+
+    .youtube-container {
+      position: relative;
+      padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+      height: 0;
+      overflow: hidden;
+      border-radius: 12px; /* Apply border radius */
+      background-color: #000; /* Black background for loading */
+    }
+
+    .youtube-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      /* border-radius is inherited or applied via container */
+    }
+
+    .badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: var(--accent-color);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      z-index: 10; /* Ensure it's above the iframe content */
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: var(--card-color);
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative; /* For absolute positioned close button */
+       transition: background-color 0.3s ease;
+    }
+
+    .modal-close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 1.5rem; /* Make it larger */
+      line-height: 1;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-color);
+      padding: 5px;
+       transition: color 0.3s ease;
+    }
+     .modal-close-btn:hover {
+         color: var(--accent-color);
+     }
+
+    .snackbar {
+      position: fixed;
+      bottom: -100px; /* Start offscreen */
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 4px;
+      z-index: 1001; /* Above modals */
+      transition: bottom 0.3s ease-out;
+      opacity: 0;
+      pointer-events: none; /* Prevent interaction when hidden */
+    }
+     .snackbar.show {
+        bottom: 20px;
+        opacity: 1;
+        pointer-events: auto;
+     }
+
+
+    @media print {
+      .playlist, .history-list, .favorites-list {
+        max-height: none;
+        overflow: visible;
+      }
+    }
+
+    /* Custom Playlist Styles */
+    .user-playlist-item {
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: rgba(142, 36, 170, 0.05);
+      transition: background-color 0.2s ease;
+    }
+
+    .user-playlist-item:hover {
+      background-color: rgba(142, 36, 170, 0.15);
+    }
+     .dark .user-playlist-item {
+         background-color: rgba(187, 134, 252, 0.1);
+     }
+     .dark .user-playlist-item:hover {
+         background-color: rgba(187, 134, 252, 0.2);
+     }
+
+    .user-playlist-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .playlist-count {
+      padding: 2px 8px;
+      background-color: var(--primary-color);
+      color: white;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      margin-left: 8px;
+       transition: background-color 0.3s ease;
+    }
+     .dark .playlist-count {
+         color: var(--background-color); /* Better contrast */
+     }
+
+    /* Dropdown Styling */
+    .dropdown-menu {
+      background-color: var(--card-color);
+      border: 1px solid var(--border-color);
+      transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    .dropdown-menu a:hover {
+       background-color: rgba(142, 36, 170, 0.1);
+    }
+     .dark .dropdown-menu a:hover {
+        background-color: rgba(187, 134, 252, 0.15);
+     }
+
+  </style>
+</head>
+
+<body>
+  <div class="app-container" id="app">
+    <header class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+      <div class="flex items-center">
+        <i class="fas fa-music text-4xl mr-3" style="color: var(--primary-color)"></i>
+        <h1 class="text-2xl md:text-3xl font-bold">Rei Kikuchi <span class="text-sm md:text-base font-normal">Premium Music Player</span></h1>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="search-container">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" id="search-input" class="search-input px-4 py-2 rounded-full w-full md:w-64" placeholder="曲名を検索...">
+        </div>
+        <button id="theme-toggle" class="btn-mode btn-inactive" aria-label="テーマ切り替え">
+          <i class="fas fa-moon"></i>
+        </button>
+        <button id="account-btn" class="btn-mode btn-inactive" aria-label="アカウント">
+          <i class="fas fa-user"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="music-player p-4 md:p-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Player Section -->
+        <div class="lg:col-span-2">
+          <div class="youtube-container mb-4">
+            <div id="youtube-player"></div>
+            <span id="now-playing-badge" class="badge hidden">NOW PLAYING</span>
+          </div>
+          <div class="flex justify-end mb-2 gap-2">
+            <button id="share-btn" class="px-3 py-1 rounded-md text-sm disabled:opacity-50" style="background-color: var(--border-color);" disabled>
+              <i class="fas fa-share-alt mr-1"></i> 共有
+            </button>
+            <button id="open-youtube-btn" class="px-3 py-1 rounded-md text-sm disabled:opacity-50" style="background-color: var(--border-color);" disabled>
+              <i class="fab fa-youtube mr-1"></i> YouTubeで開く
+            </button>
+          </div>
+          <div class="visualizer-container mb-4">
+            <canvas id="visualizer"></canvas>
+          </div>
+          <div class="player-info mb-4">
+            <h2 id="current-song-title" class="text-xl font-bold truncate">選択された曲はありません</h2>
+            <p id="current-song-duration" class="text-sm opacity-75">--:--</p>
+          </div>
+          <div class="progress-container mb-4">
+            <div class="progress-bar" id="progress-bar"></div>
+          </div>
+          <div class="flex items-center justify-between mb-4">
+            <span id="current-time">00:00</span>
+            <span id="total-time">00:00</span>
+          </div>
+          <div class="player-controls flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+              <button id="btn-shuffle" class="text-xl btn-inactive rounded-full w-10 h-10 flex items-center justify-center" aria-label="シャッフル">
+                <i class="fas fa-random"></i>
+              </button>
+              <button id="btn-loop" class="text-xl btn-inactive rounded-full w-10 h-10 flex items-center justify-center" aria-label="リピート">
+                <i class="fas fa-repeat"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-4">
+              <button id="btn-prev" class="text-2xl" aria-label="前の曲">
+                <i class="fas fa-step-backward"></i>
+              </button>
+              <button id="btn-play" class="text-4xl btn-active rounded-full w-16 h-16 flex items-center justify-center" aria-label="再生">
+                <i class="fas fa-play"></i>
+              </button>
+              <button id="btn-next" class="text-2xl" aria-label="次の曲">
+                <i class="fas fa-step-forward"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <i class="fas fa-volume-up text-sm" aria-hidden="true"></i>
+              <div class="volume-control">
+                <input type="range" id="volume-slider" min="0" max="100" value="100" aria-label="音量調整">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Playlist Section -->
+        <div class="lg:col-span-1">
+          <div class="tabs">
+            <div class="tab active" data-tab="playlist" role="tab" aria-selected="true">プレイリスト</div>
+            <div class="tab" data-tab="history" role="tab" aria-selected="false">再生履歴</div>
+            <div class="tab" data-tab="favorites" role="tab" aria-selected="false">お気に入り</div>
+            <div class="tab" data-tab="user-playlists" role="tab" aria-selected="false">マイプレイリスト</div>
+          </div>
+
+          <div id="playlist-tab" class="tab-content" role="tabpanel">
+            <div class="playlist" id="playlist">
+              <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-spinner fa-spin text-3xl mb-4"></i>
+                <p>楽曲を読み込み中...</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="history-tab" class="tab-content hidden" role="tabpanel">
+            <div class="playlist history-list" id="history-list">
+              <div class="text-center py-8 text-gray-500">
+                <p>再生履歴はありません</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="favorites-tab" class="tab-content hidden" role="tabpanel">
+            <div class="playlist favorites-list" id="favorites-list">
+              <div class="text-center py-8 text-gray-500">
+                <p>お気に入りに登録された曲はありません</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="user-playlists-tab" class="tab-content hidden" role="tabpanel">
+            <div class="mb-4">
+              <button id="create-playlist-btn" class="px-3 py-1 rounded-md text-sm mb-4" style="background-color: var(--primary-color); color: white;">
+                <i class="fas fa-plus mr-1"></i> 新しいプレイリスト
+              </button>
+            </div>
+            <div class="playlist user-playlists-list" id="user-playlists-list">
+              <div class="text-center py-8 text-gray-500">
+                <p>マイプレイリストはありません</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Dialogs -->
+    <div id="create-playlist-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="create-playlist-modal-title">
+      <div class="modal-content">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="create-playlist-modal-title" class="text-lg font-bold">新しいプレイリストを作成</h3>
+          <button class="modal-close-btn close-modal-btn" data-modal-id="createPlaylist" aria-label="閉じる">×</button>
+        </div>
+        <div class="mb-4">
+          <label for="playlist-name-input" class="block text-sm mb-2">プレイリスト名</label>
+          <input type="text" id="playlist-name-input" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
+        </div>
+        <div>
+          <button id="save-playlist-btn" class="px-4 py-2 rounded text-white focusable" style="background-color: var(--primary-color);">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="share-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
+      <div class="modal-content">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="share-modal-title" class="text-lg font-bold">共有</h3>
+          <button class="modal-close-btn close-modal-btn" data-modal-id="share" aria-label="閉じる">×</button>
+        </div>
+        <p id="share-object-title" class="mb-4"></p>
+        <div class="flex gap-4 mb-4">
+          <button class="share-option flex-1 px-3 py-2 rounded text-white focusable" style="background-color: #1DA1F2;">
+            <i class="fab fa-twitter mr-2"></i> Twitter
+          </button>
+          <button class="share-option flex-1 px-3 py-2 rounded text-white focusable" style="background-color: #4267B2;">
+            <i class="fab fa-facebook-f mr-2"></i> Facebook
+          </button>
+        </div>
+        <div class="mb-4">
+          <label for="share-link-input" class="block text-sm mb-2">共有リンク</label>
+          <div class="flex">
+            <input type="text" id="share-link-input" class="flex-1 px-3 py-2 border rounded-l focusable" style="border-color: var(--border-color); background-color: var(--card-color);" readonly>
+            <button id="copy-link-btn" class="px-3 py-2 rounded-r text-white focusable" style="background-color: var(--primary-color);">コピー</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="account-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
+      <div class="modal-content">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="account-modal-title" class="text-lg font-bold">アカウント設定</h3>
+          <button class="modal-close-btn close-modal-btn" data-modal-id="account" aria-label="閉じる">×</button>
+        </div>
+
+        <div id="login-section">
+          <div class="mb-4">
+            <label for="login-email" class="block text-sm mb-2">メールアドレス</label>
+            <input type="email" id="login-email" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
+          </div>
+          <div class="mb-4">
+            <label for="login-password" class="block text-sm mb-2">パスワード</label>
+            <input type="password" id="login-password" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
+          </div>
+          <div class="mb-4">
+            <button id="login-btn" class="px-4 py-2 rounded text-white mr-2 focusable" style="background-color: var(--primary-color);">ログイン</button>
+            <button id="show-register-btn" class="px-4 py-2 rounded focusable" style="background-color: var(--border-color);">新規登録</button>
+          </div>
+        </div>
+
+        <div id="register-section" class="hidden">
+           <div class="mb-4">
+            <label for="register-name" class="block text-sm mb-2">ユーザー名</label>
+            <input type="text" id="register-name" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
+          </div>
+          <div class="mb-4">
+            <label for="register-email" class="block text-sm mb-2">メールアドレス</label>
+            <input type="email" id="register-email" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
+          </div>
+          <div class="mb-4">
+            <label for="register-password" class="block text-sm mb-2">パスワード</label>
+            <input type="password" id="register-password" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
+          </div>
+          <div class="mb-4">
+            <button id="register-btn" class="px-4 py-2 rounded text-white mr-2 focusable" style="background-color: var(--primary-color);">登録</button>
+            <button id="show-login-btn" class="px-4 py-2 rounded focusable" style="background-color: var(--border-color);">ログインに戻る</button>
+          </div>
+        </div>
+
+        <div id="account-info-section" class="hidden">
+          <div class="mb-4 text-center">
+            <div class="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center mx-auto mb-2">
+              <i class="fas fa-user text-3xl"></i>
+            </div>
+            <h4 id="user-name" class="font-bold"></h4>
+            <p id="user-email" class="text-sm opacity-75"></p>
+          </div>
+          <div class="mb-4">
+            <button id="sync-data-btn" class="w-full px-4 py-2 rounded mb-2 focusable" style="background-color: var(--border-color);">
+              <i class="fas fa-sync mr-2"></i> データを同期
+            </button>
+            <button id="logout-btn" class="w-full px-4 py-2 rounded text-white focusable" style="background-color: var(--accent-color);">
+              <i class="fas fa-sign-out-alt mr-2"></i> ログアウト
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="playlist-detail-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="playlist-detail-modal-title">
+       <div class="modal-content max-h-[80vh]">
+         <div class="flex justify-between items-center mb-4">
+           <h3 id="playlist-detail-title" class="text-lg font-bold">プレイリスト</h3>
+           <button class="modal-close-btn close-modal-btn" data-modal-id="playlistDetail" aria-label="閉じる">×</button>
+         </div>
+         <div id="playlist-detail-content" class="playlist-detail-list">
+           <p class="text-center py-8 text-gray-500">プレイリストを読み込み中...</p>
+         </div>
+         <div class="flex gap-2 mt-4">
+           <button id="remove-from-playlist-btn" class="px-3 py-1 rounded text-sm hidden focusable" style="background-color: var(--accent-color); color: white;">
+             <i class="fas fa-minus mr-1"></i> 選択を削除
+           </button>
+           <button id="share-playlist-btn" class="px-3 py-1 rounded text-sm ml-auto focusable" style="background-color: var(--primary-color); color: white;">
+             <i class="fas fa-share-alt mr-1"></i> 共有
+           </button>
+         </div>
+       </div>
+     </div>
+
+
+    <div id="snackbar" class="snackbar"></div>
+
+    <footer class="mt-8 text-center text-sm opacity-75">
+      <p>© 2025 Rei Kikuchi Music Player | このプレイヤーはRei Kikuchiによって作られました</p>
+    </footer>
+  </div>
+
+  <!-- YouTube API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    // Constants
+    const MAX_HISTORY = 20;
+    const VOLUME_STEP = 5; // For keyboard control
+    const SEEK_STEP = 5; // For keyboard control (seconds)
+
+    // Data and State Management
+    const appState = {
+      player: null,
+      songs: [],
+      filteredSongs: [], // Currently displayed songs in the main playlist tab
+      currentSongIndex: -1, // Index within the original `songs` array
+      isPlaying: false,
+      isShuffle: false,
+      loopMode: 'none', // 'none', 'one', 'all'
+      currentTab: 'playlist',
+      volume: 100,
+      progressInterval: null,
+      history: [],
+      favorites: [],
+      userPlaylists: [],
+      currentSelectedPlaylist: null, // ID of the playlist being viewed/edited
+      loggedInUser: null,
+      snackbarTimeoutId: null, // For managing snackbar display
+      activeModalId: null, // Track the currently open modal
+      isPlayerReady: false,
+      visualizer: {
+          context: null,
+          analyser: null,
+          animationFrameId: null,
+          bufferLength: 0,
+          dataArray: null,
+          canvas: null,
+          canvasCtx: null,
+      }
+    };
+
+    // Mock data (keep as is for now)
+    const mockSongs = [
+      { id: 'o3BudA6Qm6Y', title: 'Silence Speaks', duration: '3:47', thumbnail: 'https://i.ytimg.com/vi/o3BudA6Qm6Y/hqdefault.jpg' },
+      { id: 'TA9tWaBI6Z0', title: 'Same Air', duration: '3:15', thumbnail: 'https://i.ytimg.com/vi/TA9tWaBI6Z0/hqdefault.jpg' },
+      { id: '0x7Hp6z9hWc', title: 'Stillness', duration: '2:41', thumbnail: 'https://i.ytimg.com/vi/0x7Hp6z9hWc/hqdefault.jpg' },
+      { id: 'mOmaFBpWzWc', title: 'Midnight Heal', duration: '3:32', thumbnail: 'https://i.ytimg.com/vi/mOmaFBpWzWc/hqdefault.jpg' },
+      { id: 'B30PEObE6-A', title: 'CLOSER', duration: '3:24', thumbnail: 'https://i.ytimg.com/vi/B30PEObE6-A/hqdefault.jpg' },
+      { id: 'O3l5pDX3IvY', title: 'Remedy', duration: '3:16', thumbnail: 'https://i.ytimg.com/vi/O3l5pDX3IvY/hqdefault.jpg' },
+      { id: 'NU3xhDh6-i4', title: 'Silver Dance', duration: '3:21', thumbnail: 'https://i.ytimg.com/vi/NU3xhDh6-i4/hqdefault.jpg' },
+      { id: 'CKEmbHmZLe0', title: 'UNCHARTED', duration: '3:24', thumbnail: 'https://i.ytimg.com/vi/CKEmbHmZLe0/hqdefault.jpg' },
+      { id: '5g_NED3mmu4', title: 'STUCK DRAFTS', duration: '2:56', thumbnail: 'https://i.ytimg.com/vi/5g_NED3mmu4/hqdefault.jpg' },
+      { id: 'T6WsvPckDCQ', title: 'Rainfall', duration: '3:19', thumbnail: 'https://i.ytimg.com/vi/T6WsvPckDCQ/hqdefault.jpg' },
+      { id: 'YfJOR67Ah1s', title: 'Silent Embrace', duration: '3:30', thumbnail: 'https://i.ytimg.com/vi/YfJOR67Ah1s/hqdefault.jpg' },
+      { id: 'EUoUvL-C9Lo', title: 'Boundless', duration: '3:18', thumbnail: 'https://i.ytimg.com/vi/EUoUvL-C9Lo/hqdefault.jpg' },
+      { id: 'o95ErWDgKvw', title: 'Petal Breeze', duration: '3:19', thumbnail: 'https://i.ytimg.com/vi/o95ErWDgKvw/hqdefault.jpg' },
+      { id: '-XaxvaufRCY', title: 'Unscripted', duration: '3:12', thumbnail: 'https://i.ytimg.com/vi/-XaxvaufRCY/hqdefault.jpg' },
+      { id: 'BHgfXyZLwxE', title: 'Stonefall', duration: '3:22', thumbnail: 'https://i.ytimg.com/vi/BHgfXyZLwxE/hqdefault.jpg' }
+    ];
+
+    // Elements (Cache DOM elements)
+    const elements = {
+      app: document.getElementById('app'),
+      playlist: document.getElementById('playlist'),
+      historyList: document.getElementById('history-list'),
+      favoritesList: document.getElementById('favorites-list'),
+      userPlaylistsList: document.getElementById('user-playlists-list'),
+      currentSongTitle: document.getElementById('current-song-title'),
+      currentSongDuration: document.getElementById('current-song-duration'),
+      progressBar: document.getElementById('progress-bar'),
+      progressContainer: document.querySelector('.progress-container'),
+      currentTime: document.getElementById('current-time'),
+      totalTime: document.getElementById('total-time'),
+      btnPlay: document.getElementById('btn-play'),
+      btnPrev: document.getElementById('btn-prev'),
+      btnNext: document.getElementById('btn-next'),
+      btnShuffle: document.getElementById('btn-shuffle'),
+      btnLoop: document.getElementById('btn-loop'),
+      volumeSlider: document.getElementById('volume-slider'),
+      themeToggle: document.getElementById('theme-toggle'),
+      searchInput: document.getElementById('search-input'),
+      tabs: document.querySelectorAll('.tab'),
+      tabContents: document.querySelectorAll('.tab-content'),
+      visualizerCanvas: document.getElementById('visualizer'),
+      nowPlayingBadge: document.getElementById('now-playing-badge'),
+      openYouTubeBtn: document.getElementById('open-youtube-btn'), // Changed from download
+      shareBtn: document.getElementById('share-btn'),
+      createPlaylistBtn: document.getElementById('create-playlist-btn'),
+      modals: {
+        createPlaylist: document.getElementById('create-playlist-modal'),
+        playlistDetail: document.getElementById('playlist-detail-modal'),
+        share: document.getElementById('share-modal'),
+        account: document.getElementById('account-modal')
+      },
+      modalCloseBtns: document.querySelectorAll('.close-modal-btn'),
+      modalButtons: {
+        savePlaylist: document.getElementById('save-playlist-btn'),
+        removeFromPlaylist: document.getElementById('remove-from-playlist-btn'),
+        sharePlaylist: document.getElementById('share-playlist-btn'),
+        copyLink: document.getElementById('copy-link-btn'),
+        login: document.getElementById('login-btn'),
+        showRegister: document.getElementById('show-register-btn'),
+        register: document.getElementById('register-btn'),
+        showLogin: document.getElementById('show-login-btn'),
+        syncData: document.getElementById('sync-data-btn'),
+        logout: document.getElementById('logout-btn'),
+        account: document.getElementById('account-btn')
+      },
+      accountSections: {
+        login: document.getElementById('login-section'),
+        register: document.getElementById('register-section'),
+        accountInfo: document.getElementById('account-info-section')
+      },
+      accountFields: {
+        loginEmail: document.getElementById('login-email'),
+        loginPassword: document.getElementById('login-password'),
+        registerName: document.getElementById('register-name'),
+        registerEmail: document.getElementById('register-email'),
+        registerPassword: document.getElementById('register-password'),
+        userName: document.getElementById('user-name'),
+        userEmail: document.getElementById('user-email')
+      },
+      playlistElements: {
+        nameInput: document.getElementById('playlist-name-input'),
+        detailTitle: document.getElementById('playlist-detail-title'),
+        detailContent: document.getElementById('playlist-detail-content'),
+        shareObjectTitle: document.getElementById('share-object-title'), // Renamed for clarity
+        shareLinkInput: document.getElementById('share-link-input')
+      },
+      snackbar: document.getElementById('snackbar')
+    };
+
+    // Initialize YouTube Player
+    function onYouTubeIframeAPIReady() {
+      try {
+        appState.player = new YT.Player('youtube-player', {
+          height: '100%',
+          width: '100%',
+          videoId: '', // Start empty
+          playerVars: {
+            'autoplay': 0,
+            'controls': 0, // Hide native controls
+            'rel': 0,
+            'showinfo': 0,
+            'modestbranding': 1,
+            'fs': 0, // Disable fullscreen button
+            'playsinline': 1 // Important for mobile web
+          },
+          events: {
+            'onReady': onPlayerReady,
+            'onStateChange': onPlayerStateChange,
+            'onError': onPlayerError // Add error handler
+          }
+        });
+      } catch (error) {
+          console.error("Error initializing YouTube Player:", error);
+          showSnackbar("プレイヤーの初期化に失敗しました。");
+      }
+    }
+
+    function onPlayerReady(event) {
+      console.log("Player Ready");
+      appState.isPlayerReady = true;
+      // Ensure volume is set correctly on ready
+      elements.volumeSlider.value = appState.volume;
+      event.target.setVolume(appState.volume);
+
+      loadSongs();
+      loadUserData(); // Load user data and theme preference
+      initAudioAnalyser();
+      setupEventListeners();
+      // Attempt to load shared content if URL param exists
+      handleUrlParams();
+    }
+
+    function onPlayerStateChange(event) {
+      console.log("Player State Changed:", event.data);
+      const playerState = event.data;
+
+      if (playerState === YT.PlayerState.ENDED) { // 0: Ended
+        handleSongEnd();
+      } else if (playerState === YT.PlayerState.PLAYING) { // 1: Playing
+        elements.btnPlay.innerHTML = '<i class="fas fa-pause"></i>';
+        elements.btnPlay.setAttribute('aria-label', '一時停止');
+        appState.isPlaying = true;
+        elements.nowPlayingBadge.classList.remove('hidden');
+        startProgressUpdate();
+        if (appState.currentSongIndex !== -1) {
+            const currentSong = appState.songs[appState.currentSongIndex];
+            addToHistory(currentSong);
+            renderHistoryList(); // Update history tab immediately
+            // Enable buttons that require a playing song
+            elements.shareBtn.disabled = false;
+            elements.openYouTubeBtn.disabled = false;
+        }
+        // Start visualizer animation
+        if (appState.visualizer.animationFrameId === null) {
+            drawVisualizer();
+        }
+      } else if (playerState === YT.PlayerState.PAUSED) { // 2: Paused
+        elements.btnPlay.innerHTML = '<i class="fas fa-play"></i>';
+        elements.btnPlay.setAttribute('aria-label', '再生');
+        appState.isPlaying = false;
+        elements.nowPlayingBadge.classList.add('hidden');
+        stopProgressUpdate();
+        // Stop visualizer animation smoothly
+        if (appState.visualizer.animationFrameId !== null) {
+            cancelAnimationFrame(appState.visualizer.animationFrameId);
+            appState.visualizer.animationFrameId = null;
+            // Optionally clear canvas or draw a static state
+            if (appState.visualizer.canvasCtx) {
+                 setTimeout(() => { // Delay clearing slightly for smoother transition
+                    appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
+                 }, 100);
+            }
+        }
+      } else if (playerState === YT.PlayerState.BUFFERING) { // 3: Buffering
+          // Optionally show a loading indicator?
+          console.log("Buffering...");
+      } else if (playerState === YT.PlayerState.CUED) { // 5: Cued
+          // Song loaded, ready to play
+          console.log("Song Cued");
+          updateProgress(); // Update time display immediately
+          elements.shareBtn.disabled = true; // Disable until actually playing
+          elements.openYouTubeBtn.disabled = false; // Can open YT page even if cued
+          elements.nowPlayingBadge.classList.add('hidden');
+          if (appState.visualizer.animationFrameId !== null) {
+             cancelAnimationFrame(appState.visualizer.animationFrameId);
+             appState.visualizer.animationFrameId = null;
+             if (appState.visualizer.canvasCtx) {
+                  appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
+             }
+          }
+      }
+    }
+
+     function onPlayerError(event) {
+         console.error("YouTube Player Error:", event.data);
+         let errorMessage = "動画の再生中にエラーが発生しました。";
+         switch (event.data) {
+             case 2: // Invalid parameter
+                 errorMessage = "再生リクエストが無効です。";
+                 break;
+             case 5: // HTML5 Player Error
+                 errorMessage = "プレイヤー内部のエラーが発生しました。";
+                 break;
+             case 100: // Video not found
+                 errorMessage = "動画が見つからないか、削除されました。";
+                 break;
+             case 101: // Playback denied
+             case 150: // Playback denied
+                 errorMessage = "この動画は埋め込み再生が許可されていません。";
+                 // Automatically try playing the next song?
+                 // playNextSong();
+                 break;
+             default:
+                 errorMessage = `不明なエラーが発生しました (コード: ${event.data})。`;
+         }
+         showSnackbar(errorMessage);
+         // Reset player state visually
+         elements.btnPlay.innerHTML = '<i class="fas fa-play"></i>';
+         elements.btnPlay.setAttribute('aria-label', '再生');
+         appState.isPlaying = false;
+         elements.nowPlayingBadge.classList.add('hidden');
+         stopProgressUpdate();
+         resetPlayerInfo();
+     }
+
+    // App Initialization Functions
+    function loadSongs() {
+      // Using mock data
+      appState.songs = [...mockSongs];
+      appState.filteredSongs = [...mockSongs];
+      renderPlaylist();
+      console.log("Songs loaded:", appState.songs.length);
+    }
+
+    function loadUserData() {
+      // Load from localStorage
+      const storedHistory = localStorage.getItem('reiKikuchiPlayerHistory');
+      const storedFavorites = localStorage.getItem('reiKikuchiPlayerFavorites');
+      const storedPlaylists = localStorage.getItem('reiKikuchiPlayerPlaylists');
+      const storedUser = localStorage.getItem('reiKikuchiPlayerUser');
+      const savedTheme = localStorage.getItem('reiKikuchiPlayerTheme');
+
+      appState.history = storedHistory ? JSON.parse(storedHistory) : [];
+      appState.favorites = storedFavorites ? JSON.parse(storedFavorites) : [];
+      appState.userPlaylists = storedPlaylists ? JSON.parse(storedPlaylists) : [];
+      appState.loggedInUser = storedUser ? JSON.parse(storedUser) : null;
+
+      // Apply theme preference
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark');
+        elements.themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+        elements.themeToggle.classList.add('btn-active');
+        elements.themeToggle.classList.remove('btn-inactive');
+      } else {
+        document.body.classList.remove('dark');
+        elements.themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+        elements.themeToggle.classList.remove('btn-active');
+        elements.themeToggle.classList.add('btn-inactive');
+      }
+
+      // Render lists based on loaded data
+      renderHistoryList();
+      renderFavoritesList();
+      renderUserPlaylists();
+      updateAccountUI(!!appState.loggedInUser); // Update account section based on login state
+      console.log("User data loaded.");
+    }
+
+    function initAudioAnalyser() {
+      // Note: We cannot access the actual audio stream from the YouTube iframe due to security restrictions.
+      // This visualizer will simulate audio based on player state (playing/paused).
+      try {
+        appState.visualizer.canvas = elements.visualizerCanvas;
+        if (!appState.visualizer.canvas) {
+            console.error("Visualizer canvas not found.");
+            return;
+        }
+        appState.visualizer.canvasCtx = appState.visualizer.canvas.getContext('2d');
+        appState.visualizer.bufferLength = 128; // Reduced complexity for simulation
+        appState.visualizer.dataArray = new Uint8Array(appState.visualizer.bufferLength);
+
+        resizeCanvas(); // Initial size calculation
+        // Don't start drawing animation here, only when playing
+
+      } catch (error) {
+        console.error('Visualizer setup failed:', error);
+        // Disable visualizer related stuff if failed?
+        elements.visualizerCanvas.style.display = 'none'; // Hide it
+      }
+    }
+
+    function setupEventListeners() {
+      // Player Controls
+      elements.btnPlay.addEventListener('click', togglePlayPause);
+      elements.btnNext.addEventListener('click', playNextSong);
+      elements.btnPrev.addEventListener('click', playPreviousSong);
+      elements.btnShuffle.addEventListener('click', toggleShuffle);
+      elements.btnLoop.addEventListener('click', toggleLoopMode);
+      elements.volumeSlider.addEventListener('input', handleVolumeChange);
+      elements.progressContainer.addEventListener('click', seekToPosition);
+
+      // Header Controls
+      elements.themeToggle.addEventListener('click', toggleTheme);
+      elements.searchInput.addEventListener('input', handleSearch);
+      elements.modalButtons.account.addEventListener('click', showAccountModal); // Open Account Modal
+
+       // Action Buttons
+       elements.shareBtn.addEventListener('click', showShareModal);
+       elements.openYouTubeBtn.addEventListener('click', handleOpenYouTube); // Changed from download
+
+      // Tab switching
+      elements.tabs.forEach(tab => {
+        tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+      });
+
+      // ---- Event Delegation for Lists ----
+      setupListEventListeners(elements.playlist, handlePlaylistClick);
+      setupListEventListeners(elements.historyList, handleHistoryClick);
+      setupListEventListeners(elements.favoritesList, handleFavoritesClick);
+      setupListEventListeners(elements.userPlaylistsList, handleUserPlaylistsClick);
+      setupListEventListeners(elements.playlistElements.detailContent, handlePlaylistDetailClick);
+
+      // My Playlists Tab Button
+      elements.createPlaylistBtn.addEventListener('click', showCreatePlaylistModal);
+
+      // Modal Buttons (Common close logic + specific actions)
+      elements.modalCloseBtns.forEach(btn => {
+        btn.addEventListener('click', () => hideModal(btn.dataset.modalId));
+      });
+      elements.modalButtons.savePlaylist.addEventListener('click', saveNewPlaylist);
+      elements.modalButtons.removeFromPlaylist.addEventListener('click', removeSongFromPlaylist);
+      elements.modalButtons.sharePlaylist.addEventListener('click', sharePlaylist);
+      elements.modalButtons.copyLink.addEventListener('click', copyShareLink);
+      // Account Modal Buttons
+      elements.modalButtons.showRegister.addEventListener('click', () => switchAuthSection('register'));
+      elements.modalButtons.showLogin.addEventListener('click', () => switchAuthSection('login'));
+      elements.modalButtons.login.addEventListener('click', handleLogin);
+      elements.modalButtons.register.addEventListener('click', handleRegister);
+      elements.modalButtons.logout.addEventListener('click', handleLogout);
+      elements.modalButtons.syncData.addEventListener('click', syncUserData);
+
+       // Close modals when clicking outside the content
+      Object.values(elements.modals).forEach(modal => {
+         modal.addEventListener('click', (e) => {
+             if (e.target === modal) { // Clicked on the backdrop
+                hideModal(modal.id.replace('-modal', '').replace('-', ''));
+             }
+         });
+      });
+
+       // Global Keydowns for player control & modals
+       document.addEventListener('keydown', handleGlobalKeyDown);
+
+      // Window Resize Handler
+      window.addEventListener('resize', resizeCanvas);
+
+      console.log("Event listeners set up.");
+    }
+
+     // Helper for setting up delegated event listeners on lists
+    function setupListEventListeners(listElement, handler) {
+        if (listElement) {
+            listElement.addEventListener('click', handler);
+        } else {
+            console.warn("List element not found for event delegation.");
+        }
+    }
+
+    // --- Event Handlers for Delegated List Clicks ---
+
+    function handlePlaylistClick(event) {
+        const target = event.target;
+        const playlistItem = target.closest('.playlist-item');
+        const favoriteBtn = target.closest('.favorite-btn');
+        const addToPlaylistBtn = target.closest('.add-to-playlist-btn');
+        const selectPlaylistLink = target.closest('.select-playlist'); // Handle clicks on links inside dropdown
+
+        if (favoriteBtn && playlistItem) {
+            event.stopPropagation();
+            const songId = favoriteBtn.dataset.id;
+            toggleFavorite(songId);
+        } else if (addToPlaylistBtn && playlistItem) {
+            event.stopPropagation();
+            togglePlaylistDropdown(addToPlaylistBtn);
+        } else if (selectPlaylistLink) {
+             event.preventDefault();
+             event.stopPropagation();
+             const songId = selectPlaylistLink.dataset.id;
+             const playlistId = selectPlaylistLink.dataset.playlistid;
+             addSongToPlaylist(songId, playlistId);
+             // Close the dropdown after selection
+             const dropdown = selectPlaylistLink.closest('.dropdown-menu');
+             if (dropdown) dropdown.classList.add('hidden');
+        } else if (playlistItem) {
+             // Clicked on the item itself (not buttons inside)
+             const index = parseInt(playlistItem.dataset.index);
+             // Make sure the index corresponds to the currently filtered list
+             if (!isNaN(index) && index >= 0 && index < appState.filteredSongs.length) {
+                 const songIdToPlay = appState.filteredSongs[index].id;
+                 // Find the original index in the main `appState.songs` list
+                 const originalIndex = appState.songs.findIndex(song => song.id === songIdToPlay);
+                 if (originalIndex !== -1) {
+                     playSong(originalIndex);
+                 }
+             }
+        } else {
+             // Clicked outside any specific item/button, maybe close dropdowns
+             closeAllPlaylistDropdowns();
+        }
+    }
+
+     function handleHistoryClick(event) {
+         const target = event.target;
+         const historyItem = target.closest('.history-item');
+         const favoriteBtn = target.closest('.favorite-btn');
+         const addToPlaylistBtn = target.closest('.add-to-playlist-btn');
+         const selectPlaylistLink = target.closest('.select-playlist');
+
+         if (favoriteBtn && historyItem) {
+             event.stopPropagation();
+             const songId = favoriteBtn.dataset.id;
+             toggleFavorite(songId);
+         } else if (addToPlaylistBtn && historyItem) {
+             event.stopPropagation();
+             togglePlaylistDropdown(addToPlaylistBtn);
+         } else if (selectPlaylistLink) {
+             event.preventDefault();
+             event.stopPropagation();
+             const songId = selectPlaylistLink.dataset.id;
+             const playlistId = selectPlaylistLink.dataset.playlistid;
+             addSongToPlaylist(songId, playlistId);
+             const dropdown = selectPlaylistLink.closest('.dropdown-menu');
+             if (dropdown) dropdown.classList.add('hidden');
+         } else if (historyItem) {
+             const songId = historyItem.dataset.id;
+             const originalIndex = appState.songs.findIndex(song => song.id === songId);
+             if (originalIndex !== -1) {
+                 playSong(originalIndex);
+             }
+         } else {
+             closeAllPlaylistDropdowns();
+         }
+     }
+
+     function handleFavoritesClick(event) {
+         const target = event.target;
+         const favoriteItem = target.closest('.favorite-item');
+         const favoriteBtn = target.closest('.favorite-btn');
+         const addToPlaylistBtn = target.closest('.add-to-playlist-btn');
+         const selectPlaylistLink = target.closest('.select-playlist');
+
+         if (favoriteBtn && favoriteItem) {
+             event.stopPropagation();
+             const songId = favoriteBtn.dataset.id;
+             toggleFavorite(songId); // Will remove it from favorites
+         } else if (addToPlaylistBtn && favoriteItem) {
+             event.stopPropagation();
+             togglePlaylistDropdown(addToPlaylistBtn);
+         } else if (selectPlaylistLink) {
+             event.preventDefault();
+             event.stopPropagation();
+             const songId = selectPlaylistLink.dataset.id;
+             const playlistId = selectPlaylistLink.dataset.playlistid;
+             addSongToPlaylist(songId, playlistId);
+             const dropdown = selectPlaylistLink.closest('.dropdown-menu');
+             if (dropdown) dropdown.classList.add('hidden');
+         } else if (favoriteItem) {
+             const songId = favoriteItem.dataset.id;
+             const originalIndex = appState.songs.findIndex(song => song.id === songId);
+             if (originalIndex !== -1) {
+                 playSong(originalIndex);
+             }
+         } else {
+             closeAllPlaylistDropdowns();
+         }
+     }
+
+     function handleUserPlaylistsClick(event) {
+         const target = event.target;
+         const playlistItem = target.closest('.user-playlist-item');
+         const playBtn = target.closest('.playlist-play-btn');
+         const editBtn = target.closest('.playlist-edit-btn');
+         const deleteBtn = target.closest('.playlist-delete-btn');
+
+         if (playBtn && playlistItem) {
+             event.stopPropagation();
+             const playlistId = playBtn.dataset.id;
+             playPlaylist(playlistId);
+         } else if (editBtn && playlistItem) {
+             event.stopPropagation();
+             const playlistId = editBtn.dataset.id;
+             viewPlaylist(playlistId);
+         } else if (deleteBtn && playlistItem) {
+             event.stopPropagation();
+             const playlistId = deleteBtn.dataset.id;
+             deletePlaylist(playlistId);
+         } else if (playlistItem) {
+             // Click on the playlist item itself defaults to edit/view
+             const playlistId = playlistItem.dataset.id;
+             viewPlaylist(playlistId);
+         }
+     }
+
+      function handlePlaylistDetailClick(event) {
+          const target = event.target;
+          const playlistItem = target.closest('.playlist-item');
+          const favoriteBtn = target.closest('.favorite-btn');
+          const checkbox = target.closest('.song-select');
+
+          if (favoriteBtn && playlistItem) {
+              event.stopPropagation();
+              const songId = favoriteBtn.dataset.id;
+              toggleFavorite(songId); // Updates localStorage and icon state
+              // No need to manually update icon here, toggleFavorite calls renderers
+          } else if (checkbox && playlistItem) {
+              // Checkbox click, allow default behavior (checking/unchecking)
+              event.stopPropagation(); // Prevent song play
+          } else if (playlistItem) {
+              // Clicked on the item itself (not buttons/checkbox)
+              const songId = playlistItem.dataset.id;
+              const originalIndex = appState.songs.findIndex(song => song.id === songId);
+              if (originalIndex !== -1) {
+                  playSong(originalIndex);
+                  hideModal('playlistDetail'); // Close modal after selecting song
+              }
+          }
+      }
+
+
+     // Helper to toggle playlist dropdown visibility
+     function togglePlaylistDropdown(buttonElement) {
+         const dropdown = buttonElement.nextElementSibling;
+         if (!dropdown || !dropdown.classList.contains('dropdown-menu')) return;
+
+         const isHidden = dropdown.classList.contains('hidden');
+         // Close all other dropdowns first
+         closeAllPlaylistDropdowns();
+         // Toggle the current one
+         if (isHidden) {
+             dropdown.classList.remove('hidden');
+         }
+         // No else needed because closeAllPlaylistDropdowns handles closing it if it was open.
+     }
+
+     // Helper to close all open playlist dropdowns
+     function closeAllPlaylistDropdowns() {
+         document.querySelectorAll('.dropdown-menu').forEach(d => {
+             d.classList.add('hidden');
+         });
+     }
+
+      // Add a listener to close dropdowns when clicking anywhere else in the app
+      document.addEventListener('click', (e) => {
+          if (!e.target.closest('.dropdown')) { // If the click is not inside a dropdown container
+              closeAllPlaylistDropdowns();
+          }
+      });
+
+
+    // Render UI Functions
+    function renderPlaylist() {
+      renderList(
+          elements.playlist,
+          appState.filteredSongs,
+          'playlist-item',
+          (song, index) => `data-index="${index}"`, // Use filtered index for clicks
+          true // Show add to playlist etc.
+      );
+       updateActiveListItem(); // Highlight active song if it's in the filtered list
+    }
+
+    function renderHistoryList() {
+      // Display history in reverse chronological order (newest first)
+      renderList(
+          elements.historyList,
+          [...appState.history].reverse(),
+          'history-item',
+          (song) => `data-id="${song.id}"`, // Identify by ID
+          true
+      );
+        updateActiveListItem();
+    }
+
+    function renderFavoritesList() {
+      renderList(
+          elements.favoritesList,
+          appState.favorites,
+          'favorite-item',
+          (song) => `data-id="${song.id}"`, // Identify by ID
+          true
+      );
+        updateActiveListItem();
+    }
+
+     // Generic list rendering function
+     function renderList(container, items, itemClass, dataAttributeFn, showActions) {
+         if (!container) return;
+
+         let listHTML = '';
+         const currentSongId = appState.currentSongIndex !== -1 ? appState.songs[appState.currentSongIndex].id : null;
+
+         if (items.length === 0) {
+             let message = "曲が見つかりません";
+             if (container === elements.historyList) message = "再生履歴はありません";
+             else if (container === elements.favoritesList) message = "お気に入りに登録された曲はありません";
+             else if (container === elements.playlist && appState.searchInput.value) message = "検索結果はありません";
+             else if (container === elements.playlist) message = "プレイリストは空です"; // Should not happen with mock data
+
+             listHTML = `<div class="text-center py-8 text-gray-500"><p>${message}</p></div>`;
+         } else {
+             items.forEach((song, index) => {
+                 if (!song || !song.id) { // Basic check for valid song object
+                     console.warn("Invalid song data encountered:", song);
+                     return; // Skip invalid entries
+                 }
+                 const isActive = song.id === currentSongId;
+                 const isFavorite = appState.favorites.some(fav => fav.id === song.id);
+                 let playlistActionsHTML = '';
+
+                 if (showActions) {
+                     const canAddToPlaylist = appState.loggedInUser && appState.userPlaylists.length > 0;
+                     playlistActionsHTML = `
+                         <button class="favorite-btn text-lg mr-2 focusable" data-id="${song.id}" aria-label="${isFavorite ? 'お気に入り解除' : 'お気に入り登録'}">
+                             <i class="fas fa-heart ${isFavorite ? 'text-red-500' : 'text-gray-400'}"></i>
+                         </button>
+                         ${appState.loggedInUser ? `
+                         <div class="dropdown relative inline-block">
+                             <button class="add-to-playlist-btn text-lg mr-2 focusable ${canAddToPlaylist ? '' : 'opacity-50 cursor-not-allowed'}" data-id="${song.id}" ${canAddToPlaylist ? '' : 'disabled aria-disabled="true"'} aria-label="プレイリストに追加">
+                                 <i class="fas fa-plus"></i>
+                             </button>
+                             ${canAddToPlaylist ? `
+                             <div class="dropdown-menu absolute right-0 mt-2 w-48 rounded-md shadow-lg hidden z-20" style="background-color: var(--card-color); border: 1px solid var(--border-color);">
+                                 <div class="py-1 max-h-32 overflow-y-auto">
+                                     ${appState.userPlaylists.map(playlist => `
+                                         <a href="#" class="block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 select-playlist focusable" data-id="${song.id}" data-playlistid="${playlist.id}">
+                                             ${escapeHTML(playlist.name)} <span class="playlist-count">${playlist.songs?.length ?? 0}</span>
+                                         </a>
+                                     `).join('')}
+                                 </div>
+                             </div>
+                             ` : ''}
+                         </div>
+                         ` : ''}
+                     `;
+                 }
+
+                 listHTML += `
+                     <div class="${itemClass} p-3 flex items-center justify-between cursor-pointer ${isActive ? 'active' : ''}" ${dataAttributeFn(song, index)}>
+                         <div class="flex items-center overflow-hidden mr-2 flex-grow min-w-0">
+                             <div class="w-10 h-10 rounded overflow-hidden mr-3 flex-shrink-0">
+                                 <img src="${song.thumbnail}" alt="${escapeHTML(song.title)}" class="w-full h-full object-cover" loading="lazy">
+                             </div>
+                             <div class="flex-grow overflow-hidden min-w-0">
+                                 <h3 class="text-sm font-medium truncate">${escapeHTML(song.title)}</h3>
+                                 <p class="text-xs opacity-75">${song.duration || '--:--'}</p>
+                             </div>
+                         </div>
+                         ${showActions ? `
+                         <div class="flex items-center flex-shrink-0 ml-2">
+                             ${playlistActionsHTML}
+                         </div>
+                         ` : ''}
+                     </div>
+                 `;
+             });
+         }
+         container.innerHTML = listHTML;
+     }
+
+
+    function renderUserPlaylists() {
+      if (!elements.userPlaylistsList) return;
+
+      if (!appState.loggedInUser) {
+          elements.userPlaylistsList.innerHTML = `
+              <div class="text-center py-8 text-gray-500">
+                  <p>ログインするとマイプレイリストが利用できます</p>
+              </div>
+          `;
+          elements.createPlaylistBtn.classList.add('hidden');
+          return;
+      }
+
+      elements.createPlaylistBtn.classList.remove('hidden');
+
+      if (appState.userPlaylists.length === 0) {
+        elements.userPlaylistsList.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <p>マイプレイリストはありません</p>
+          </div>
+        `;
+        return;
+      }
+
+      let playlistsHTML = '';
+      appState.userPlaylists.forEach(playlist => {
+          if (!playlist || !playlist.id) {
+               console.warn("Invalid playlist data encountered:", playlist);
+               return;
+          }
+          playlistsHTML += `
+          <div class="user-playlist-item cursor-pointer" data-id="${playlist.id}">
+            <span class="font-medium truncate mr-2 flex-grow min-w-0">${escapeHTML(playlist.name)}</span>
+            <div class="user-playlist-actions flex items-center flex-shrink-0 ml-2">
+              <span class="playlist-count">${playlist.songs?.length ?? 0}</span>
+              <button class="playlist-play-btn text-sm ml-2 focusable" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)}を再生">
+                <i class="fas fa-play"></i>
+              </button>
+              <button class="playlist-edit-btn text-sm ml-2 focusable" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)}を編集">
+                <i class="fas fa-pencil-alt"></i>
+              </button>
+               <button class="playlist-delete-btn text-sm ml-2 text-red-500 focusable" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)}を削除">
+                 <i class="fas fa-trash"></i>
+               </button>
+            </div>
+          </div>
+        `;
+      });
+      elements.userPlaylistsList.innerHTML = playlistsHTML;
+    }
+
+    function renderPlaylistDetail(playlist) {
+      if (!playlist || !playlist.id) {
+          console.error("Invalid playlist object passed to renderPlaylistDetail");
+          elements.playlistElements.detailContent.innerHTML = `<p class="text-red-500 text-center py-4">プレイリストの表示中にエラーが発生しました。</p>`;
+          return;
+      }
+
+      elements.playlistElements.detailTitle.textContent = playlist.name;
+      const songsInPlaylist = playlist.songs
+                                .map(songId => appState.songs.find(s => s.id === songId))
+                                .filter(song => song); // Filter out any songs not found in the main list
+
+      if (songsInPlaylist.length === 0) {
+        elements.playlistElements.detailContent.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <p>このプレイリストには曲が追加されていません</p>
+          </div>
+        `;
+        elements.modalButtons.removeFromPlaylist.classList.add('hidden');
+        return;
+      }
+
+      let songsHTML = '';
+       const currentSongId = appState.currentSongIndex !== -1 ? appState.songs[appState.currentSongIndex].id : null;
+
+      songsInPlaylist.forEach(song => {
+        const isFavorite = appState.favorites.some(fav => fav.id === song.id);
+         const isActive = song.id === currentSongId;
+        songsHTML += `
+          <div class="playlist-item p-3 flex items-center justify-between cursor-pointer ${isActive ? 'active' : ''}" data-id="${song.id}">
+            <div class="flex items-center overflow-hidden mr-2 flex-grow min-w-0">
+               <input type="checkbox" class="song-select mr-3 flex-shrink-0 focusable" data-id="${song.id}" aria-label="${escapeHTML(song.title)}を選択">
+              <div class="w-10 h-10 rounded overflow-hidden mr-3 flex-shrink-0">
+                <img src="${song.thumbnail}" alt="${escapeHTML(song.title)}" class="w-full h-full object-cover" loading="lazy">
+              </div>
+              <div class="flex-grow overflow-hidden min-w-0">
+                <h3 class="text-sm font-medium truncate">${escapeHTML(song.title)}</h3>
+                <p class="text-xs opacity-75">${song.duration || '--:--'}</p>
+              </div>
+            </div>
+            <div class="flex items-center flex-shrink-0 ml-2">
+              <button class="favorite-btn text-lg mr-2 focusable" data-id="${song.id}" aria-label="${isFavorite ? 'お気に入り解除' : 'お気に入り登録'}">
+                <i class="fas fa-heart ${isFavorite ? 'text-red-500' : 'text-gray-400'}"></i>
+              </button>
+              <!-- Maybe add play button here too? -->
+            </div>
+          </div>
+        `;
+      });
+      elements.playlistElements.detailContent.innerHTML = songsHTML;
+      elements.modalButtons.removeFromPlaylist.classList.remove('hidden');
+      updateActiveListItem(); // Highlight active song if present
+    }
+
+    // --- Player Control Functions ---
+    function playSong(originalIndex) {
+        if (!appState.isPlayerReady) {
+            showSnackbar("プレイヤーの準備ができていません。");
+            console.warn("playSong called before player is ready.");
+            return;
+        }
+        if (originalIndex >= 0 && originalIndex < appState.songs.length) {
+            appState.currentSongIndex = originalIndex;
+            const currentSong = appState.songs[originalIndex];
+
+            if (!currentSong || !currentSong.id) {
+                console.error("Invalid song data at index:", originalIndex);
+                showSnackbar("曲データの読み込みに失敗しました。");
+                return;
+            }
+
+            elements.currentSongTitle.textContent = currentSong.title;
+            elements.currentSongDuration.textContent = currentSong.duration || '--:--';
+
+            try {
+                 if (appState.player && typeof appState.player.loadVideoById === 'function') {
+                     console.log(`Loading video: ${currentSong.id} (${currentSong.title})`);
+                     appState.player.loadVideoById(currentSong.id);
+                     // Play is handled by onStateChange BUFFERING -> CUED -> PLAYING usually
+                     // For reliability, explicitly call playVideo after a short delay or in CUED state?
+                     // Let's rely on state change for now, but keep playVideo() call in togglePlayPause.
+                 } else {
+                     throw new Error("Player or loadVideoById not available.");
+                 }
+            } catch (error) {
+                 console.error("Error loading video:", error);
+                 showSnackbar("動画の読み込みに失敗しました。");
+                 resetPlayerInfo();
+                 return; // Stop further execution for this song
+            }
+
+            updateActiveListItem(); // Highlight the playing song in the visible list
+
+            // Update share/youtube buttons (will be enabled by onStateChange)
+             elements.shareBtn.disabled = true;
+             elements.openYouTubeBtn.disabled = true; // Enable once cued or playing
+
+        } else {
+            console.warn("Invalid song index requested:", originalIndex);
+        }
+    }
+
+    function togglePlayPause() {
+        if (!appState.isPlayerReady) {
+            showSnackbar("プレイヤーの準備ができていません。");
+            return;
+        }
+        if (appState.currentSongIndex === -1 && appState.songs.length > 0) {
+            // No song selected, play the first song from the main list
+            playSong(0);
+            return;
+        }
+        if (appState.currentSongIndex === -1) {
+             showSnackbar("再生する曲がありません。");
+             return;
+        }
+
+        try {
+            const playerState = appState.player.getPlayerState();
+            if (playerState === YT.PlayerState.PLAYING) {
+                appState.player.pauseVideo();
+            } else {
+                appState.player.playVideo();
+            }
+        } catch (error) {
+            console.error("Error toggling play/pause:", error);
+            showSnackbar("再生/一時停止中にエラーが発生しました。");
+        }
+    }
+
+    function playNextSong() {
+        if (appState.songs.length === 0) return;
+        if (appState.currentSongIndex === -1) { // If nothing is playing, start from first
+             playSong(0);
+             return;
+        }
+
+        let nextIndex;
+        if (appState.isShuffle) {
+            let randomIndex;
+            if (appState.songs.length <= 1) {
+                randomIndex = 0; // Only one song, just replay or stop based on loop
+            } else {
+                 do {
+                     randomIndex = Math.floor(Math.random() * appState.songs.length);
+                 } while (randomIndex === appState.currentSongIndex);
+            }
+            nextIndex = randomIndex;
+        } else {
+            nextIndex = (appState.currentSongIndex + 1) % appState.songs.length;
+        }
+        playSong(nextIndex);
+    }
+
+    function playPreviousSong() {
+        if (appState.songs.length === 0) return;
+        if (appState.currentSongIndex === -1) { // If nothing is playing, maybe play last? Or first? Let's play first.
+             playSong(0);
+             return;
+        }
+
+        try {
+            // If current time is more than 3 seconds, restart the song instead of going previous
+            if (appState.player.getCurrentTime() > 3) {
+                appState.player.seekTo(0);
+                return;
+            }
+        } catch (error) {
+            console.warn("Could not get current time for previous song logic:", error);
+            // Proceed with changing song anyway
+        }
+
+
+        let prevIndex;
+        if (appState.isShuffle) {
+             let randomIndex;
+             if (appState.songs.length <= 1) {
+                 randomIndex = 0;
+             } else {
+                  do {
+                      randomIndex = Math.floor(Math.random() * appState.songs.length);
+                  } while (randomIndex === appState.currentSongIndex);
+             }
+             prevIndex = randomIndex;
+        } else {
+             prevIndex = appState.currentSongIndex - 1;
+             if (prevIndex < 0) {
+                 prevIndex = appState.songs.length - 1; // Loop back to the end
+             }
+        }
+        playSong(prevIndex);
+    }
+
+    function handleSongEnd() {
+        console.log("Song ended. Loop mode:", appState.loopMode);
+        switch (appState.loopMode) {
+            case 'one':
+                try {
+                   appState.player.seekTo(0);
+                   appState.player.playVideo(); // Explicitly play again
+                } catch (error) {
+                   console.error("Error replaying song:", error);
+                   playNextSong(); // Fallback to next song
+                }
+                break;
+            case 'all':
+                playNextSong();
+                break;
+            case 'none':
+            default:
+                // Stop playing only if it was the very last song in non-shuffle mode
+                if (!appState.isShuffle && appState.currentSongIndex === appState.songs.length - 1) {
+                    try {
+                        // Don't stop automatically, just pause and reset UI
+                        // appState.player.stopVideo(); // stopVideo() is drastic, pause is better
+                        appState.player.pauseVideo(); // Pause at the end
+                        appState.player.seekTo(0); // Reset to beginning
+                    } catch (error) {
+                         console.error("Error pausing/seeking at end:", error);
+                    }
+                    // Update UI in onPlayerStateChange(PAUSED)
+                    // resetPlayerInfo(); // Reset display
+                } else {
+                    // Play next song (even in 'none' mode, unless it was the absolute last)
+                    playNextSong();
+                }
+                break;
+        }
+    }
+
+    function toggleShuffle() {
+      appState.isShuffle = !appState.isShuffle;
+      elements.btnShuffle.classList.toggle('btn-active', appState.isShuffle);
+      elements.btnShuffle.classList.toggle('btn-inactive', !appState.isShuffle);
+      elements.btnShuffle.setAttribute('aria-pressed', appState.isShuffle);
+      showSnackbar(`シャッフル: ${appState.isShuffle ? 'オン' : 'オフ'}`);
+    }
+
+    function toggleLoopMode() {
+      switch (appState.loopMode) {
+        case 'none':
+          appState.loopMode = 'all';
+          elements.btnLoop.innerHTML = '<i class="fas fa-repeat"></i>';
+          elements.btnLoop.classList.add('btn-active');
+          elements.btnLoop.classList.remove('btn-inactive');
+          showSnackbar('リピート: 全曲');
+          elements.btnLoop.setAttribute('aria-label', 'リピート: 全曲');
+          break;
+        case 'all':
+          appState.loopMode = 'one';
+          // FontAwesome 6 uses fa-1 for repeat-1 icon
+          elements.btnLoop.innerHTML = '<i class="fas fa-1" style="font-size: 0.8em; position: relative; top: -0.1em; margin-left: -0.2em;"></i><i class="fas fa-repeat"></i>';
+          // Keep btn-active class
+          showSnackbar('リピート: 1曲');
+           elements.btnLoop.setAttribute('aria-label', 'リピート: 1曲');
+          break;
+        case 'one':
+          appState.loopMode = 'none';
+          elements.btnLoop.innerHTML = '<i class="fas fa-repeat"></i>';
+          elements.btnLoop.classList.remove('btn-active');
+          elements.btnLoop.classList.add('btn-inactive');
+          showSnackbar('リピート: オフ');
+           elements.btnLoop.setAttribute('aria-label', 'リピート: オフ');
+          break;
+      }
+    }
+
+    function handleVolumeChange() {
+        const volume = parseInt(elements.volumeSlider.value);
+        setVolume(volume);
+    }
+
+     function setVolume(volume) {
+         volume = Math.max(0, Math.min(100, volume)); // Clamp volume between 0 and 100
+         appState.volume = volume;
+         elements.volumeSlider.value = volume; // Update slider position
+         if (appState.isPlayerReady && appState.player && typeof appState.player.setVolume === 'function') {
+              try {
+                 appState.player.setVolume(volume);
+              } catch (error) {
+                  console.error("Error setting volume:", error);
+              }
+         }
+         // console.log("Volume set to:", volume);
+     }
+
+    function adjustVolume(delta) {
+        const newVolume = appState.volume + delta;
+        setVolume(newVolume); // setVolume handles clamping and updating player/UI
+    }
+
+
+    function seekToPosition(event) {
+        if (!appState.isPlayerReady || appState.currentSongIndex === -1) return;
+
+        const progressContainer = elements.progressContainer;
+        const rect = progressContainer.getBoundingClientRect();
+        const clickX = event.clientX;
+        // Ensure click is within the bounds of the progress bar horizontally
+        if (clickX < rect.left || clickX > rect.right) {
+             return;
+        }
+
+        const percent = (clickX - rect.left) / rect.width;
+
+        try {
+            const duration = appState.player.getDuration();
+            if (duration > 0) {
+                const seekTime = duration * percent;
+                appState.player.seekTo(seekTime, true); // true allows seek ahead
+                updateProgress(); // Update UI immediately after seek
+            }
+        } catch (error) {
+            console.error("Error seeking:", error);
+            showSnackbar("シーク中にエラーが発生しました。");
+        }
+    }
+
+     function seekRelative(deltaSeconds) {
+         if (!appState.isPlayerReady || appState.currentSongIndex === -1) return;
+         try {
+             const currentTime = appState.player.getCurrentTime();
+             const duration = appState.player.getDuration();
+             if (duration > 0) {
+                 let seekTime = currentTime + deltaSeconds;
+                 seekTime = Math.max(0, Math.min(seekTime, duration)); // Clamp within bounds
+                 appState.player.seekTo(seekTime, true);
+                 updateProgress(); // Update UI immediately
+             }
+         } catch (error) {
+             console.error("Error seeking relative:", error);
+         }
+     }
+
+    function startProgressUpdate() {
+      stopProgressUpdate(); // Clear any existing interval
+      appState.progressInterval = setInterval(updateProgress, 500); // Update twice per second
+      updateProgress(); // Initial update
+    }
+
+    function stopProgressUpdate() {
+      if (appState.progressInterval) {
+        clearInterval(appState.progressInterval);
+        appState.progressInterval = null;
+      }
+    }
+
+    function updateProgress() {
+        if (!appState.isPlayerReady || !appState.player || typeof appState.player.getCurrentTime !== 'function' || appState.currentSongIndex === -1) {
+            // Ensure reset if player not ready or no song playing
+             elements.progressBar.style.width = '0%';
+             elements.currentTime.textContent = '00:00';
+             // Only reset total time if it's truly unknown
+             // elements.totalTime.textContent = '00:00';
+             return;
+        }
+
+        try {
+            const currentTime = appState.player.getCurrentTime() || 0;
+            const duration = appState.player.getDuration() || 0;
+
+            if (duration > 0) {
+                const percent = (currentTime / duration) * 100;
+                elements.progressBar.style.width = `${percent}%`;
+                elements.currentTime.textContent = formatTime(currentTime);
+                elements.totalTime.textContent = formatTime(duration);
+            } else {
+                // Reset if duration is 0 (e.g., before song loads fully)
+                elements.progressBar.style.width = '0%';
+                elements.currentTime.textContent = '00:00';
+                // Keep potentially known duration from metadata if available
+                elements.totalTime.textContent = appState.songs[appState.currentSongIndex]?.duration || '00:00';
+            }
+        } catch (error) {
+             console.error("Error updating progress:", error);
+             // Don't stop the interval, it might recover
+        }
+    }
+
+     function resetPlayerInfo() {
+         elements.currentSongTitle.textContent = "選択された曲はありません";
+         elements.currentSongDuration.textContent = "--:--";
+         elements.progressBar.style.width = '0%';
+         elements.currentTime.textContent = "00:00";
+         elements.totalTime.textContent = "00:00";
+         elements.shareBtn.disabled = true;
+         elements.openYouTubeBtn.disabled = true;
+         elements.nowPlayingBadge.classList.add('hidden');
+         updateActiveListItem(); // Clear any active highlights
+     }
+
+    // --- Playlist Functions ---
+    function showCreatePlaylistModal() {
+      if (!appState.loggedInUser) {
+        showAccountModal(); // Prompt login first
+        showSnackbar('プレイリストを作成するにはログインしてください');
+        return;
+      }
+      elements.playlistElements.nameInput.value = '';
+      showModal('createPlaylist');
+      // Focus the input field after the modal is shown
+      setTimeout(() => elements.playlistElements.nameInput.focus(), 100);
+    }
+
+    function saveNewPlaylist() {
+      const name = elements.playlistElements.nameInput.value.trim();
+      if (!name) {
+        showSnackbar('プレイリスト名を入力してください');
+        elements.playlistElements.nameInput.focus();
+        return;
+      }
+      const newPlaylist = {
+        id: `pl_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, // More robust unique ID
+        name: name,
+        songs: [],
+        created: new Date().toISOString()
+      };
+      appState.userPlaylists.push(newPlaylist);
+      saveUserPlaylists();
+      renderUserPlaylists();
+       // Re-render other lists in case "Add to Playlist" buttons need to be enabled/updated
+       renderPlaylist();
+       renderHistoryList();
+       renderFavoritesList();
+      hideModal('createPlaylist');
+      showSnackbar(`プレイリスト「${escapeHTML(name)}」を作成しました`);
+    }
+
+     function deletePlaylist(playlistId) {
+        const playlistIndex = appState.userPlaylists.findIndex(p => p.id === playlistId);
+        if (playlistIndex === -1) return;
+
+        const playlist = appState.userPlaylists[playlistIndex];
+        if (confirm(`プレイリスト「${escapeHTML(playlist.name)}」を削除してもよろしいですか？ これによりプレイリスト内の曲は削除されません。`)) {
+            appState.userPlaylists.splice(playlistIndex, 1);
+            saveUserPlaylists();
+            renderUserPlaylists(); // Re-render the list
+             // Re-render other lists to update "Add to Playlist" dropdowns
+             renderPlaylist();
+             renderHistoryList();
+             renderFavoritesList();
+
+             if (appState.currentSelectedPlaylist === playlistId) {
+                // If the deleted playlist was being viewed, close the detail modal
+                hideModal('playlistDetail');
+                appState.currentSelectedPlaylist = null;
+            }
+            showSnackbar(`プレイリスト「${escapeHTML(playlist.name)}」を削除しました`);
+        }
+    }
+
+    function addSongToPlaylist(songId, playlistId) {
+      const playlist = appState.userPlaylists.find(p => p.id === playlistId);
+      const song = appState.songs.find(s => s.id === songId);
+
+      if (!playlist || !song) {
+           console.error("Playlist or Song not found for adding:", playlistId, songId);
+           showSnackbar("エラーが発生しました。");
+           return;
+      }
+      if (!playlist.songs) {
+          playlist.songs = []; // Initialize songs array if missing
+      }
+
+      // Check if song already exists in playlist
+      if (!playlist.songs.includes(songId)) {
+        playlist.songs.push(songId);
+        saveUserPlaylists();
+        renderUserPlaylists(); // Update counts in the main list
+        if (appState.currentSelectedPlaylist === playlistId && elements.modals.playlistDetail.style.display === 'flex') {
+             // If the detail view is open for this playlist, re-render it
+             renderPlaylistDetail(playlist);
+        }
+         // Update count in dropdowns (re-render lists)
+         renderPlaylist();
+         renderHistoryList();
+         renderFavoritesList();
+         showSnackbar(`「${escapeHTML(song.title)}」をプレイリスト「${escapeHTML(playlist.name)}」に追加しました`);
+      } else {
+        showSnackbar(`「${escapeHTML(song.title)}」は既にプレイリスト「${escapeHTML(playlist.name)}」に存在します`);
+      }
+       // Close dropdown (might be redundant if handled by global click listener)
+       closeAllPlaylistDropdowns();
+    }
+
+    function viewPlaylist(playlistId) {
+      const playlist = appState.userPlaylists.find(p => p.id === playlistId);
+      if (!playlist) {
+          showSnackbar("プレイリストが見つかりません。");
+          return;
+      }
+      appState.currentSelectedPlaylist = playlistId;
+      renderPlaylistDetail(playlist);
+      showModal('playlistDetail');
+    }
+
+    function playPlaylist(playlistId) {
+      const playlist = appState.userPlaylists.find(p => p.id === playlistId);
+      if (!playlist || !playlist.songs || playlist.songs.length === 0) {
+          showSnackbar("このプレイリストは空か、再生できる曲がありません。");
+          return;
+      }
+      // Find first song in playlist that exists in the main song list
+      let firstPlayableOriginalIndex = -1;
+      for (const songId of playlist.songs) {
+          const originalIndex = appState.songs.findIndex(song => song && song.id === songId);
+          if (originalIndex !== -1) {
+              firstPlayableOriginalIndex = originalIndex;
+              break;
+          }
+      }
+
+      if (firstPlayableOriginalIndex !== -1) {
+          // TODO: Implement playlist context for next/prev?
+          // For now, just play the first song.
+          playSong(firstPlayableOriginalIndex);
+          showSnackbar(`プレイリスト「${escapeHTML(playlist.name)}」を再生します`);
+      } else {
+          showSnackbar("プレイリスト内の曲がアプリのライブラリに見つかりません。");
+      }
+    }
+
+
+    function removeSongFromPlaylist() {
+      const playlistId = appState.currentSelectedPlaylist;
+      const playlist = appState.userPlaylists.find(p => p.id === playlistId);
+      if (!playlist || !playlist.songs) return;
+
+      const selectedCheckboxes = elements.playlistElements.detailContent.querySelectorAll('.song-select:checked');
+      const selectedSongIds = Array.from(selectedCheckboxes).map(el => el.dataset.id);
+
+      if (selectedSongIds.length === 0) {
+        showSnackbar('削除する曲を選択してください');
+        return;
+      }
+
+      const initialLength = playlist.songs.length;
+      playlist.songs = playlist.songs.filter(songId => !selectedSongIds.includes(songId));
+      const removedCount = initialLength - playlist.songs.length;
+
+      if (removedCount > 0) {
+           saveUserPlaylists();
+           renderUserPlaylists(); // Update counts in the main list
+           renderPlaylistDetail(playlist); // Re-render the detail view (checkboxes will be unchecked)
+           showSnackbar(`${removedCount}曲をプレイリストから削除しました`);
+      } else {
+           showSnackbar("選択された曲は見つかりませんでした。"); // Should not happen if checkboxes were checked
+      }
+    }
+
+    function sharePlaylist() {
+        const playlistId = appState.currentSelectedPlaylist;
+        const playlist = appState.userPlaylists.find(p => p.id === playlistId);
+        if (!playlist) {
+            showSnackbar("共有するプレイリストが見つかりません。");
+            return;
+        }
+
+        // Generate a shareable link (can be enhanced later)
+        const shareLink = `${window.location.origin}${window.location.pathname}?sharedPlaylistId=${playlistId}`;
+        const shareTitle = `プレイリスト: ${escapeHTML(playlist.name)}`;
+
+        elements.playlistElements.shareLinkInput.value = shareLink;
+        elements.playlistElements.shareObjectTitle.textContent = shareTitle;
+        hideModal('playlistDetail'); // Close detail modal first
+        showModal('share'); // Show the generic share modal
+    }
+
+
+    // --- Share Functions ---
+    function showShareModal() {
+        let shareLink = '';
+        let shareTitle = '';
+        let currentSong = null;
+
+        if (appState.currentSongIndex !== -1 && appState.songs[appState.currentSongIndex]) {
+            currentSong = appState.songs[appState.currentSongIndex];
+            shareLink = `https://www.youtube.com/watch?v=${currentSong.id}`;
+            shareTitle = `曲: ${escapeHTML(currentSong.title)}`;
+        } else {
+            showSnackbar('共有する曲を再生してください');
+            return;
+        }
+
+        elements.playlistElements.shareLinkInput.value = shareLink;
+        elements.playlistElements.shareObjectTitle.textContent = shareTitle;
+
+        // Setup social media share buttons (basic example)
+        const encodedLink = encodeURIComponent(shareLink);
+        const encodedTitle = encodeURIComponent(shareTitle + " via Rei Kikuchi Premium Player");
+
+        const twitterBtn = elements.modals.share.querySelector('button[style*="1DA1F2"]'); // Twitter Blue
+        if (twitterBtn) {
+            twitterBtn.onclick = () => window.open(`https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedLink}`, '_blank');
+        }
+
+        const facebookBtn = elements.modals.share.querySelector('button[style*="4267B2"]'); // Facebook Blue
+        if (facebookBtn) {
+             facebookBtn.onclick = () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`, '_blank');
+        }
+
+
+        showModal('share');
+    }
+
+    function copyShareLink() {
+      const shareLinkInput = elements.playlistElements.shareLinkInput;
+      if (!shareLinkInput.value) {
+          showSnackbar('コピーするリンクがありません。');
+          return;
+      }
+
+      navigator.clipboard.writeText(shareLinkInput.value).then(() => {
+          showSnackbar('リンクをクリップボードにコピーしました');
+      }).catch(err => {
+          console.error('Failed to copy link using Clipboard API: ', err);
+          // Fallback for older browsers/insecure contexts
+          shareLinkInput.select();
+          shareLinkInput.setSelectionRange(0, 99999); // For mobile devices
+          try {
+              const successful = document.execCommand('copy');
+              if (successful) {
+                  showSnackbar('リンクをクリップボードにコピーしました (Fallback)');
+              } else {
+                  showSnackbar('リンクのコピーに失敗しました');
+              }
+          } catch (errFallback) {
+              console.error('Fallback copy failed: ', errFallback);
+              showSnackbar('リンクのコピーに失敗しました');
+          }
+          window.getSelection()?.removeAllRanges(); // Deselect text
+      });
+    }
+
+    // --- "Open on YouTube" Function ---
+    function handleOpenYouTube() {
+      if (appState.currentSongIndex === -1 || !appState.songs[appState.currentSongIndex]) {
+          showSnackbar('再生中の曲がありません。');
+          return;
+      }
+      const currentSong = appState.songs[appState.currentSongIndex];
+      const youtubeUrl = `https://www.youtube.com/watch?v=${currentSong.id}`;
+      window.open(youtubeUrl, '_blank'); // Open in new tab
+    }
+
+    // --- Account Functions ---
+    function showAccountModal() {
+        if (appState.loggedInUser) {
+            updateAccountUI(true); // Ensure account info is shown
+            switchAuthSection('account');
+        } else {
+            updateAccountUI(false); // Ensure login form is shown
+            switchAuthSection('login');
+        }
+        showModal('account');
+    }
+
+    function switchAuthSection(section) {
+      elements.accountSections.login.classList.add('hidden');
+      elements.accountSections.register.classList.add('hidden');
+      elements.accountSections.accountInfo.classList.add('hidden');
+
+      const sectionToShow = elements.accountSections[section];
+      if (sectionToShow) {
+          sectionToShow.classList.remove('hidden');
+          // Focus the first focusable element in the new section
+          const firstFocusable = sectionToShow.querySelector('.focusable');
+          if(firstFocusable && appState.activeModalId === 'account') { // Only focus if modal is active
+             setTimeout(() => firstFocusable.focus(), 100); // Delay ensures visibility
+          }
+      } else {
+          console.warn("Invalid auth section requested:", section);
+      }
+    }
+
+    // Mock login/register/logout/sync remain the same as before, adding focus management
+
+    function handleLogin() {
+      const email = elements.accountFields.loginEmail.value.trim();
+      const password = elements.accountFields.loginPassword.value.trim();
+      if (!email || !password) {
+        showSnackbar('メールアドレスとパスワードを入力してください');
+        return;
+      }
+      // --- Mock Login ---
+      console.log("Attempting login for:", email);
+      showSnackbar("ログイン中...");
+      setTimeout(() => {
+          // In a real app, validate credentials via API call
+          const mockUser = {
+              id: `user_${Date.now()}`,
+              name: email.split('@')[0] || 'Demo User',
+              email: email,
+              token: `mock-token-${Date.now()}`
+          };
+          appState.loggedInUser = mockUser;
+          localStorage.setItem('reiKikuchiPlayerUser', JSON.stringify(mockUser));
+          updateAccountUI(true); // This will call render functions
+          showSnackbar('ログインしました');
+          hideModal('account');
+          loadUserData(); // Reload all data after login
+      }, 1000);
+    }
+
+
+    function handleRegister() {
+        const name = elements.accountFields.registerName.value.trim();
+        const email = elements.accountFields.registerEmail.value.trim();
+        const password = elements.accountFields.registerPassword.value.trim();
+        if (!name || !email || !password) {
+            showSnackbar('すべてのフィールドを入力してください');
+            return;
+        }
+        if (!/\S+@\S+\.\S+/.test(email)) {
+            showSnackbar('有効なメールアドレスを入力してください');
+            return;
+        }
+        if (password.length < 6) {
+            showSnackbar('パスワードは6文字以上で入力してください');
+            return;
+        }
+
+        // --- Mock Registration ---
+        console.log("Attempting registration for:", name, email);
+        showSnackbar("登録中...");
+        setTimeout(() => {
+            const mockUser = {
+                id: `user_${Date.now()}`,
+                name: name,
+                email: email,
+                token: `mock-token-${Date.now()}`
+            };
+            appState.loggedInUser = mockUser;
+            localStorage.setItem('reiKikuchiPlayerUser', JSON.stringify(mockUser));
+            updateAccountUI(true); // This will call render functions
+            showSnackbar('登録が完了しました。ようこそ！');
+            hideModal('account');
+            loadUserData(); // Reload all data after registration
+        }, 1500);
+    }
+
+    function handleLogout() {
+        if (confirm("ログアウトしてもよろしいですか？")) {
+            appState.loggedInUser = null;
+            localStorage.removeItem('reiKikuchiPlayerUser');
+            // Decide whether to clear local playlists/favs/history on logout
+            // Example: Keep them locally unless explicitly synced/cleared
+            // appState.userPlaylists = [];
+            // localStorage.removeItem('reiKikuchiPlayerPlaylists');
+            updateAccountUI(false); // This will call render functions
+            showSnackbar('ログアウトしました');
+            hideModal('account');
+            loadUserData(); // Reload data to reflect logged-out state
+        }
+    }
+
+
+    function syncUserData() {
+        if (!appState.loggedInUser) {
+            showSnackbar("同期するにはログインしてください。");
+            return;
+        }
+        // --- Mock Sync ---
+        console.log("Attempting data sync for user:", appState.loggedInUser.email);
+        showSnackbar("データをサーバーと同期中...");
+        setTimeout(() => {
+            // Simulate receiving data and merging...
+            showSnackbar('データ同期が完了しました (デモ)');
+            // Re-render lists in case data changed
+            renderFavoritesList();
+            renderHistoryList();
+            renderUserPlaylists();
+        }, 2000);
+    }
+
+
+    function updateAccountUI(isLoggedIn) {
+        if (isLoggedIn && appState.loggedInUser) {
+            // If modal is open, switch section; otherwise just update button state
+            if (appState.activeModalId === 'account') {
+                 switchAuthSection('account');
+            }
+            elements.accountFields.userName.textContent = appState.loggedInUser.name;
+            elements.accountFields.userEmail.textContent = appState.loggedInUser.email;
+            elements.modalButtons.account.innerHTML = '<i class="fas fa-user-check"></i>';
+            elements.modalButtons.account.classList.remove('btn-inactive');
+            elements.modalButtons.account.classList.add('btn-active');
+             elements.modalButtons.account.setAttribute('aria-label', 'アカウント (ログイン済み)');
+        } else {
+            if (appState.activeModalId === 'account') {
+                switchAuthSection('login');
+            }
+            elements.modalButtons.account.innerHTML = '<i class="fas fa-user"></i>';
+            elements.modalButtons.account.classList.add('btn-inactive');
+            elements.modalButtons.account.classList.remove('btn-active');
+             elements.modalButtons.account.setAttribute('aria-label', 'アカウント (未ログイン)');
+        }
+        // Re-render lists impacted by login state (e.g., add to playlist availability)
+         // Check if elements exist before rendering (might be called early)
+         if (elements.playlist && elements.historyList && elements.favoritesList && elements.userPlaylistsList) {
+             renderPlaylist();
+             renderHistoryList();
+             renderFavoritesList();
+             renderUserPlaylists();
+         }
+    }
+
+
+    // --- Utility Functions ---
+    function formatTime(seconds) {
+      if (isNaN(seconds) || seconds < 0) {
+        return '00:00';
+      }
+      seconds = Math.floor(seconds);
+      const minutes = Math.floor(seconds / 60);
+      seconds = seconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    function toggleTheme() {
+        document.body.classList.toggle('dark');
+        const isDark = document.body.classList.contains('dark');
+        elements.themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        elements.themeToggle.classList.toggle('btn-active', isDark);
+        elements.themeToggle.classList.toggle('btn-inactive', !isDark);
+        elements.themeToggle.setAttribute('aria-pressed', isDark);
+        localStorage.setItem('reiKikuchiPlayerTheme', isDark ? 'dark' : 'light');
+        // Visualizer colors are handled dynamically in drawVisualizer based on dark class
+        // Re-draw visualizer immediately if it's currently static (paused)
+        if (!appState.isPlaying && appState.visualizer.canvasCtx) {
+             appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
+        }
+    }
+
+
+    function handleSearch() {
+      const searchTerm = elements.searchInput.value.toLowerCase().trim();
+      appState.filteredSongs = appState.songs.filter(song =>
+          song.title.toLowerCase().includes(searchTerm)
+      );
+      renderPlaylist(); // Re-render the main playlist with filtered results
+      // Optional: Switch back to playlist tab if user searches while on another tab
+      if (appState.currentTab !== 'playlist') {
+          switchTab('playlist');
+      }
+    }
+
+    function switchTab(tabName) {
+        if (appState.currentTab === tabName) return; // Already on this tab
+
+        appState.currentTab = tabName;
+        // Update tab styles
+        elements.tabs.forEach(tab => {
+            const isSelected = tab.dataset.tab === tabName;
+            tab.classList.toggle('active', isSelected);
+            tab.setAttribute('aria-selected', isSelected);
+        });
+        // Show/hide tab content
+        elements.tabContents.forEach(content => {
+            content.classList.toggle('hidden', content.id !== `${tabName}-tab`);
+        });
+
+        // Update active state highlight when switching to a relevant tab
+        updateActiveListItem();
+        console.log("Switched to tab:", tabName);
+    }
+
+    function addToHistory(song) {
+      if (!song || !song.id) return; // Ensure valid song object
+
+      // Remove if already exists to move it to the end (most recent)
+      appState.history = appState.history.filter(item => item.id !== song.id);
+
+      // Add to the end
+      appState.history.push(song);
+
+      // Limit history size
+      if (appState.history.length > MAX_HISTORY) {
+        appState.history = appState.history.slice(appState.history.length - MAX_HISTORY);
+      }
+
+      saveToLocalStorage('reiKikuchiPlayerHistory', appState.history);
+      // RenderHistoryList is called from onPlayerStateChange(PLAYING)
+    }
+
+    function toggleFavorite(songId) {
+        const songIndexInFavorites = appState.favorites.findIndex(song => song && song.id === songId);
+        const song = appState.songs.find(s => s && s.id === songId);
+
+        if (!song) {
+            console.warn("Cannot toggle favorite for unknown song ID:", songId);
+            return;
+        }
+
+        if (songIndexInFavorites > -1) {
+            // Remove from favorites
+            appState.favorites.splice(songIndexInFavorites, 1);
+            showSnackbar(`「${escapeHTML(song.title)}」をお気に入りから削除しました`);
+        } else {
+            // Add to favorites (add a copy to avoid mutation issues if needed)
+            appState.favorites.push({ ...song });
+            showSnackbar(`「${escapeHTML(song.title)}」をお気に入りに追加しました`);
+        }
+
+        saveToLocalStorage('reiKikuchiPlayerFavorites', appState.favorites);
+
+        // Update UI by re-rendering relevant lists
+        // Determine which lists might contain this song and need updating
+        if (appState.currentTab === 'playlist') renderPlaylist();
+        if (appState.currentTab === 'history') renderHistoryList();
+        if (appState.currentTab === 'favorites') renderFavoritesList();
+        // Also update if the playlist detail modal is open showing this song
+        if (elements.modals.playlistDetail.style.display === 'flex' && appState.currentSelectedPlaylist) {
+            const playlist = appState.userPlaylists.find(p => p.id === appState.currentSelectedPlaylist);
+            if (playlist && playlist.songs.includes(songId)) {
+                 renderPlaylistDetail(playlist);
+            }
+        }
+    }
+
+    function saveUserPlaylists() {
+      saveToLocalStorage('reiKikuchiPlayerPlaylists', appState.userPlaylists);
+    }
+
+     function saveToLocalStorage(key, data) {
+         try {
+             localStorage.setItem(key, JSON.stringify(data));
+         } catch (error) {
+             console.error("Error saving to localStorage:", key, error);
+             showSnackbar("設定の保存中にエラーが発生しました。");
+         }
+     }
+
+    // --- Modal Management ---
+    let lastFocusedElement = null; // Store element focused before modal opens
+
+     function showModal(modalId) {
+         const modal = elements.modals[modalId];
+         if (modal && appState.activeModalId !== modalId) { // Prevent opening if already open
+             // Store the element that has focus before opening the modal
+             lastFocusedElement = document.activeElement;
+
+             modal.style.display = 'flex';
+             appState.activeModalId = modalId;
+             document.body.style.overflow = 'hidden'; // Prevent background scrolling
+
+             // Focus trap: find all focusable elements within the modal
+             const focusableElements = modal.querySelectorAll('.focusable, button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+             const firstFocusable = focusableElements[0];
+             const lastFocusable = focusableElements[focusableElements.length - 1];
+
+              // Set initial focus (usually the first element or a specific one)
+              if (firstFocusable) {
+                  setTimeout(() => firstFocusable.focus(), 50); // Delay helps ensure modal is fully visible
+              }
+
+             // Add keydown listener for focus trapping and Escape key
+             modal.currentKeyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId);
+             modal.addEventListener('keydown', modal.currentKeyDownListener);
+
+             console.log("Modal shown:", modalId);
+         }
+     }
+
+     function hideModal(modalId) {
+         const modal = elements.modals[modalId];
+         if (modal && appState.activeModalId === modalId) { // Only hide if it's the active one
+             modal.style.display = 'none';
+             appState.activeModalId = null;
+
+             // Remove the specific keydown listener for this modal
+             if (modal.currentKeyDownListener) {
+                 modal.removeEventListener('keydown', modal.currentKeyDownListener);
+                 modal.currentKeyDownListener = null; // Clean up
+             }
+
+             // Restore focus to the element that had focus before the modal opened
+             if (lastFocusedElement) {
+                 lastFocusedElement.focus();
+                 lastFocusedElement = null; // Reset
+             }
+
+             // Restore body scrolling only if no other modals are open
+             const anyModalOpen = Object.values(elements.modals).some(m => m.style.display === 'flex');
+             if (!anyModalOpen) {
+                 document.body.style.overflow = '';
+             }
+             console.log("Modal hidden:", modalId);
+             // Reset specific modal states if necessary (e.g., playlist detail selection)
+             if (modalId === 'playlistDetail') {
+                 appState.currentSelectedPlaylist = null;
+             }
+         }
+     }
+
+     function handleModalKeyDown(e, firstFocusable, lastFocusable, modalId) {
+         if (e.key === 'Escape') {
+             hideModal(modalId);
+             return;
+         }
+
+         if (e.key === 'Tab') {
+             // Focus trapping logic
+             if (e.shiftKey) { // Shift + Tab
+                 if (document.activeElement === firstFocusable) {
+                     if (lastFocusable) lastFocusable.focus();
+                     e.preventDefault();
+                 }
+             } else { // Tab
+                 if (document.activeElement === lastFocusable) {
+                     if (firstFocusable) firstFocusable.focus();
+                     e.preventDefault();
+                 }
+             }
+              // If there's only one focusable element, prevent tabbing away
+             if (firstFocusable === lastFocusable && (document.activeElement === firstFocusable || document.activeElement === lastFocusable)) {
+                e.preventDefault();
+             }
+         }
+     }
+
+    // --- Snackbar ---
+    function showSnackbar(message) {
+        if (!elements.snackbar) return;
+        elements.snackbar.textContent = message;
+
+        // Clear existing timeout if snackbar is currently shown or fading out
+        if (appState.snackbarTimeoutId) {
+            clearTimeout(appState.snackbarTimeoutId);
+            elements.snackbar.classList.remove('show'); // Reset animation state
+        }
+
+        // Force reflow to restart animation if needed
+        void elements.snackbar.offsetWidth;
+
+        // Show the snackbar
+        elements.snackbar.classList.add('show');
+
+        // Set timeout to hide it
+        appState.snackbarTimeoutId = setTimeout(() => {
+            elements.snackbar.classList.remove('show');
+            appState.snackbarTimeoutId = null;
+        }, 3000); // 3 seconds
+    }
+
+     // --- Global Keydown Handler ---
+    function handleGlobalKeyDown(event) {
+        // Ignore keydowns if focus is inside an input field, textarea, or select
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'SELECT');
+
+         // Also ignore if a modal is active (modal handles its own keys like Esc/Tab)
+        if (appState.activeModalId) {
+            // Allow Escape key even if input is focused inside modal? Maybe not.
+            return;
+        }
+
+        if (isInputFocused && event.key !== 'Escape') { // Allow Esc even from inputs? Maybe not needed.
+            return; // Don't interfere with typing
+        }
+
+        switch (event.key) {
+            case ' ': // Space bar
+                event.preventDefault(); // Prevent page scroll
+                togglePlayPause();
+                break;
+            case 'ArrowRight':
+                event.preventDefault();
+                 if (event.ctrlKey || event.metaKey) { // Seek forward with Ctrl/Cmd
+                      seekRelative(SEEK_STEP);
+                 } else {
+                      playNextSong();
+                 }
+                break;
+            case 'ArrowLeft':
+                event.preventDefault();
+                if (event.ctrlKey || event.metaKey) { // Seek backward with Ctrl/Cmd
+                     seekRelative(-SEEK_STEP);
+                } else {
+                     playPreviousSong();
+                }
+                break;
+            case 'ArrowUp':
+                event.preventDefault();
+                adjustVolume(VOLUME_STEP);
+                break;
+            case 'ArrowDown':
+                event.preventDefault();
+                adjustVolume(-VOLUME_STEP);
+                break;
+             case 'm': // Mute/Unmute toggle (example)
+             case 'M':
+                // TODO: Implement mute toggle if desired
+                break;
+            // Add more shortcuts if needed (e.g., 's' for shuffle, 'l' for loop)
+        }
+    }
+
+
+    // --- Visualizer Drawing ---
+    function drawVisualizer() {
+        if (!appState.visualizer.canvasCtx || !appState.visualizer.dataArray) {
+             appState.visualizer.animationFrameId = null; // Stop requesting frames if context is gone
+             return;
+        }
+
+        // Request next frame
+        appState.visualizer.animationFrameId = requestAnimationFrame(drawVisualizer);
+
+        // Simulate audio data based on playing state
+        const bufferLength = appState.visualizer.bufferLength;
+        const dataArray = appState.visualizer.dataArray;
+        const isPlaying = appState.isPlaying; // Use cached state
+
+        for (let i = 0; i < bufferLength; i++) {
+            if (isPlaying) {
+                // More dynamic simulation: use sine wave + randomness for variation
+                 const timeFactor = Date.now() * 0.005 + i * 0.1; // Slow moving wave
+                 const randomFactor = Math.random() * 50;
+                 const sineValue = (Math.sin(timeFactor) + 1) / 2; // Normalize to 0-1
+                 dataArray[i] = Math.max(0, Math.min(255, (sineValue * 150) + randomFactor + 20)); // Base level + sine + randomness
+            } else {
+                 // Fade out effect when paused
+                 dataArray[i] = Math.max(0, dataArray[i] * 0.95 - 1); // Decay quickly
+            }
+        }
+
+        const canvas = appState.visualizer.canvas;
+        const canvasCtx = appState.visualizer.canvasCtx;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Clear canvas
+        canvasCtx.clearRect(0, 0, width, height);
+
+        // Determine colors based on theme
+        const isDarkMode = document.body.classList.contains('dark');
+        const primaryColor = isDarkMode ? getComputedStyle(document.documentElement).getPropertyValue('--primary-color') : getComputedStyle(document.documentElement).getPropertyValue('--primary-color');
+        const secondaryColor = isDarkMode ? getComputedStyle(document.documentElement).getPropertyValue('--secondary-color') : getComputedStyle(document.documentElement).getPropertyValue('--secondary-color');
+        const backgroundColor = isDarkMode ? 'rgba(30, 30, 30, 0.1)' : 'rgba(245, 245, 245, 0.1)';
+
+        // Optional background fill
+        canvasCtx.fillStyle = backgroundColor;
+        canvasCtx.fillRect(0, 0, width, height);
+
+        // Create gradient for bars
+        const gradient = canvasCtx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, primaryColor);
+        gradient.addColorStop(1, secondaryColor);
+        canvasCtx.fillStyle = gradient;
+
+        const barWidth = (width / bufferLength) * 1.5; // Slightly narrower bars
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * height * 0.8; // Max height 80% of canvas
+
+             // Draw rounded bars (optional)
+             const borderRadius = barWidth / 3;
+             canvasCtx.beginPath();
+             canvasCtx.moveTo(x + borderRadius, height);
+             canvasCtx.lineTo(x + borderRadius, height - barHeight + borderRadius);
+             canvasCtx.arcTo(x + borderRadius, height - barHeight, x + barWidth - borderRadius, height - barHeight, borderRadius); // Top-left to top-right arc
+             canvasCtx.lineTo(x + barWidth - borderRadius, height - barHeight + borderRadius);
+             canvasCtx.lineTo(x + barWidth - borderRadius, height);
+             canvasCtx.closePath();
+             canvasCtx.fill();
+
+
+            // Simple rectangular bars:
+            // canvasCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+
+            x += barWidth + 2; // Add spacing between bars
+        }
+    }
+
+
+    // --- Canvas Resize ---
+    function resizeCanvas() {
+        if (!appState.visualizer.canvas) return;
+        const canvas = appState.visualizer.canvas;
+        const parent = canvas.parentElement;
+        if (!parent) return;
+
+        const rect = parent.getBoundingClientRect();
+        // Check if dimensions actually changed to avoid unnecessary redraws
+        if (canvas.width !== rect.width || canvas.height !== rect.height) {
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            console.log("Resized visualizer canvas to:", canvas.width, canvas.height);
+            // Visualizer will redraw on the next animation frame, no need to call draw explicitly
+        }
+    }
+
+     // --- Highlight Active Song ---
+     function updateActiveListItem() {
+         const currentSongId = appState.currentSongIndex !== -1 ? appState.songs[appState.currentSongIndex]?.id : null;
+
+         // Select all potential list item containers
+         const listContainers = [
+             elements.playlist,
+             elements.historyList,
+             elements.favoritesList,
+             elements.playlistElements.detailContent // Playlist detail modal
+         ];
+
+         listContainers.forEach(container => {
+             if (container) {
+                 // Remove active class from all items within this container first
+                 container.querySelectorAll('.active').forEach(item => item.classList.remove('active'));
+
+                 // Add active class to the current song if it exists in this container
+                 if (currentSongId) {
+                     // Find item by data-id or data-index depending on the list type
+                     let activeItem = container.querySelector(`[data-id="${currentSongId}"]`);
+                     if (!activeItem && container === elements.playlist) {
+                         // Playlist uses data-index based on filteredSongs
+                         const filteredIndex = appState.filteredSongs.findIndex(song => song.id === currentSongId);
+                         if (filteredIndex !== -1) {
+                            activeItem = container.querySelector(`[data-index="${filteredIndex}"]`);
+                         }
+                     }
+
+                     if (activeItem) {
+                         activeItem.classList.add('active');
+                         // Scroll into view if necessary and the list is currently visible
+                          const tabContent = activeItem.closest('.tab-content');
+                          const modalContent = activeItem.closest('.modal-content');
+                          const isVisible = (tabContent && !tabContent.classList.contains('hidden')) || (modalContent && modalContent.closest('.modal')?.style.display === 'flex');
+
+                         if (isVisible) {
+                             activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                         }
+                     }
+                 }
+             }
+         });
+     }
+
+      // --- Handle URL Parameters ---
+      function handleUrlParams() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const sharedPlaylistId = urlParams.get('sharedPlaylistId');
+          const songIdToPlay = urlParams.get('playSongId'); // Optional: direct link to play a song
+
+          if (sharedPlaylistId) {
+              // Find and display the shared playlist
+              // Needs userPlaylists to be loaded first (happens in onPlayerReady)
+              const playlist = appState.userPlaylists.find(p => p.id === sharedPlaylistId);
+              if (playlist) {
+                  showSnackbar(`共有されたプレイリスト「${escapeHTML(playlist.name)}」を表示します`);
+                  viewPlaylist(sharedPlaylistId);
+                  // Optionally switch to the "My Playlists" tab?
+                  switchTab('user-playlists');
+              } else {
+                  // If playlists are user-specific and user isn't logged in, this might fail.
+                  // Handle case where playlist isn't found (maybe it's public later?)
+                  showSnackbar("共有されたプレイリストが見つかりませんでした。");
+              }
+              // Clear the param from URL? Optional. history.replaceState({}, '', window.location.pathname);
+          } else if (songIdToPlay) {
+               const originalIndex = appState.songs.findIndex(song => song && song.id === songIdToPlay);
+               if (originalIndex !== -1) {
+                   playSong(originalIndex);
+                    showSnackbar(`共有された曲を再生します`);
+               } else {
+                   showSnackbar("共有された曲が見つかりませんでした。");
+               }
+               // Clear the param from URL? Optional. history.replaceState({}, '', window.location.pathname);
+          }
+      }
+
+      // --- HTML Escaping Utility ---
+      function escapeHTML(str) {
+          if (!str) return '';
+          return str.replace(/[&<>"']/g, function(match) {
+              switch (match) {
+                  case '&': return '&';
+                  case '<': return '<';
+                  case '>': return '>';
+                  case '"': return '"';
+                  case "'": return "'"; // Escape single quote
+                  default: return match;
+              }
+          });
+      }
+
+
+    // Let the YouTube API load and call onYouTubeIframeAPIReady automatically
+    console.log("Player script initialized. Waiting for YouTube API...");
+
+  </script>
+</body>
+
+</html>
