@@ -1376,13 +1376,22 @@
       showSnackbar("新しい動画は見つかりませんでした");
       return;
     }
-    // 取得した動画情報をプレイヤー用の形式に変換して設定
-    appState.songs = videos.map(video => ({
-      id: video.id.trim(),  // ここで動画IDの前後の空白を除去
-      title: video.title,
-      duration: video.duration, 
-      thumbnail: video.thumbnail
-    }));
+    // 動画IDの配列を作成（前後の空白を除去）
+    const videoIds = videos.map(video => video.id.trim());
+    // 動画詳細情報を取得（duration など）
+    const videoDetails = await youtubeAPI.getVideoDetails(videoIds);
+    
+    // 各動画データに正しい duration をマージして設定する
+    appState.songs = videos.map(video => {
+      // getVideoDetails の中から該当する動画を探す
+      const details = videoDetails.find(detail => detail.id === video.id) || {};
+      return {
+        id: video.id.trim(),
+        title: video.title,
+        duration: details.duration || '--:--',  // 正しい duration があれば上書き
+        thumbnail: video.thumbnail
+      };
+    });
     // フィルタリング用の配列も更新
     appState.filteredSongs = [...appState.songs];
     renderPlaylist(); // プレイリストの表示を更新
@@ -1391,7 +1400,6 @@
     showSnackbar("動画データの取得に失敗しました");
   }
 }
-
 
 
     // Elements (Cache DOM elements)
@@ -1947,23 +1955,24 @@
       // お気に入り状態を判定
       const isFavorite = appState.favorites.some(fav => fav.id === song.id);
       container.innerHTML += `
-        <div class="playlist-item p-3 flex items-center justify-between cursor-pointer" data-id="${song.id}">
-          <div class="flex items-center overflow-hidden mr-2 flex-grow min-w-0">
-            <div class="w-10 h-10 rounded overflow-hidden mr-3 flex-shrink-0">
-              <img src="${song.thumbnail}" alt="${escapeHTML(song.title)}" class="w-full h-full object-cover" loading="lazy">
-            </div>
-            <div class="flex-grow overflow-hidden min-w-0">
-              <h3 class="text-sm font-medium truncate">${escapeHTML(song.title)}</h3>
-              <p class="text-xs opacity-75">${song.duration || '--:--'}</p>
-            </div>
-          </div>
-          <div class="flex items-center flex-shrink-0 ml-2">
-            <button class="favorite-btn text-lg mr-2 focusable" data-id="${song.id}" aria-label="${isFavorite ? 'お気に入り解除' : 'お気に入り登録'}">
-              <i class="fas fa-heart ${isFavorite ? 'text-red-500' : 'text-gray-400'}"></i>
-            </button>
-          </div>
-        </div>
-      `;
+  <div class="playlist-item p-3 flex items-center justify-between cursor-pointer" data-id="${song.id}">
+    <div class="flex items-center overflow-hidden mr-2 flex-grow min-w-0">
+      <div class="w-10 h-10 rounded overflow-hidden mr-3 flex-shrink-0">
+        <img src="${song.thumbnail}" alt="${escapeHTML(song.title)}" class="w-full h-full object-cover" loading="lazy">
+      </div>
+      <div class="flex-grow overflow-hidden min-w-0">
+        <h3 class="text-sm font-medium truncate">${escapeHTML(song.title)}</h3>
+        <!-- 時間表示は削除 -->
+      </div>
+    </div>
+    <div class="flex items-center flex-shrink-0 ml-2">
+      <button class="favorite-btn text-lg mr-2 focusable" data-id="${song.id}" aria-label="${isFavorite ? 'お気に入り解除' : 'お気に入り登録'}">
+        <i class="fas fa-heart ${isFavorite ? 'text-red-500' : 'text-gray-400'}"></i>
+      </button>
+    </div>
+  </div>
+`;
+
     });
     index += chunkSize;
     if (index < items.length) {
@@ -2059,7 +2068,7 @@
                              </div>
                              <div class="flex-grow overflow-hidden min-w-0">
                                  <h3 class="text-sm font-medium truncate">${escapeHTML(song.title)}</h3>
-                                 <p class="text-xs opacity-75">${song.duration || '--:--'}</p>
+                                
                              </div>
                          </div>
                          ${showActions ? `
@@ -2163,7 +2172,7 @@
               </div>
               <div class="flex-grow overflow-hidden min-w-0">
                 <h3 class="text-sm font-medium truncate">${escapeHTML(song.title)}</h3>
-                <p class="text-xs opacity-75">${song.duration || '--:--'}</p>
+               
               </div>
             </div>
             <div class="flex items-center flex-shrink-0 ml-2">
@@ -2810,15 +2819,17 @@
 
     // --- Account Functions ---
     function showAccountModal() {
-        if (appState.loggedInUser) {
-            updateAccountUI(true); // Ensure account info is shown
-            switchAuthSection('account');
-        } else {
-            updateAccountUI(false); // Ensure login form is shown
-            switchAuthSection('login');
-        }
-        showModal('account');
-    }
+  console.log("showAccountModal() が呼ばれました");
+  if (appState.loggedInUser) {
+    updateAccountUI(true);
+    switchAuthSection('account');
+  } else {
+    updateAccountUI(false);
+    switchAuthSection('login');
+  }
+  showModal('account');
+}
+
 
     function switchAuthSection(section) {
       elements.accountSections.login.classList.add('hidden');
@@ -2841,12 +2852,13 @@
     // Mock login/register/logout/sync remain the same as before, adding focus management
 
     function handleLogin() {
-      const email = elements.accountFields.loginEmail.value.trim();
-      const password = elements.accountFields.loginPassword.value.trim();
-      if (!email || !password) {
-        showSnackbar('メールアドレスとパスワードを入力してください');
-        return;
-      }
+  console.log("ログインボタンがクリックされました");
+  const email = elements.accountFields.loginEmail.value.trim();
+  const password = elements.accountFields.loginPassword.value.trim();
+  if (!email || !password) {
+    showSnackbar('メールアドレスとパスワードを入力してください');
+    return;
+  }
       // --- Mock Login ---
       console.log("Attempting login for:", email);
       showSnackbar("ログイン中...");
@@ -3491,58 +3503,46 @@
       // 最新の動画を取得する関数
       async getLatestVideos() {
   try {
-    // ① チャンネルのアップロード済みプレイリストIDを取得
+    // チャンネル情報取得
     const channelResponse = await fetch(
       `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${this.channelId}&key=${this.apiKey}`
     );
-    
     if (!channelResponse.ok) {
       throw new Error('チャンネル情報の取得に失敗しました');
     }
-    
     const channelData = await channelResponse.json();
-    
     if (!channelData.items || channelData.items.length === 0) {
       throw new Error('チャンネルが見つかりません');
     }
-    
     const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
-    
-    // ② ページネーションを利用して全ての動画データを取得する
+
+    // ページネーションで全動画を取得（最大5ページ）
     let videos = [];
     let nextPageToken = '';
-    // ③ ページ数の上限を設定（例：最大5ページ）
     let pageCount = 0;
     const maxPages = 5;
-    
     do {
       let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsPlaylistId}&key=${this.apiKey}`;
       if (nextPageToken) {
         url += `&pageToken=${nextPageToken}`;
       }
-      
       const playlistResponse = await fetch(url);
       if (!playlistResponse.ok) {
         throw new Error('プレイリスト情報の取得に失敗しました');
       }
-      
       const playlistData = await playlistResponse.json();
-      
       if (playlistData.items) {
         videos.push(...playlistData.items);
       }
-      
       nextPageToken = playlistData.nextPageToken;
-      
-      // ④ ページ数をカウントして上限に達したらループ終了
       pageCount++;
       if (pageCount >= maxPages) {
         console.log(`最大ページ数 ${maxPages} に達しました。`);
         break;
       }
     } while (nextPageToken);
-    
-    // ⑤ 必要な情報だけを抽出して返す
+
+    // 必要な情報だけを抽出（duration は空にしておく）
     return videos.map(item => {
       const snippet = item.snippet;
       return {
@@ -3551,8 +3551,7 @@
         description: snippet.description,
         thumbnail: snippet.thumbnails.high.url,
         publishedAt: snippet.publishedAt,
-        // 動画の長さは別途 API コールが必要なため、ここでは仮の値を設定
-        duration: '3:00'
+        duration: null  // duration は後で上書きする
       };
     });
   } catch (error) {
@@ -3560,7 +3559,8 @@
     showSnackbar('YouTube動画の取得に失敗しました');
     return [];
   }
-},
+}
+,
       
       // 動画の詳細情報を取得する関数（長さなど）
       async getVideoDetails(videoIds) {
@@ -3935,6 +3935,17 @@
         });
       }
     });
+    document.addEventListener('DOMContentLoaded', function() {
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      console.log("直接設定：ログインボタンがクリックされました");
+      handleLogin();
+    });
+  } else {
+    console.error("login-btn が見つかりません");
+  }
+});
 
   </script>
 </body>
