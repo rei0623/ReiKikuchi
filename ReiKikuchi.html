@@ -1370,7 +1370,7 @@
     };
     async function loadSongsFromYouTube() {
   try {
-    // 例：最新15件の動画データを取得
+    // 最新15件の動画データを取得
     const videos = await youtubeAPI.getLatestVideos(15);
     if (videos.length === 0) {
       showSnackbar("新しい動画は見つかりませんでした");
@@ -1378,9 +1378,9 @@
     }
     // 取得した動画情報をプレイヤー用の形式に変換して設定
     appState.songs = videos.map(video => ({
-      id: video.id,
+      id: video.id.trim(),  // ここで動画IDの前後の空白を除去
       title: video.title,
-      duration: video.duration, // 動画詳細で取得した duration を利用
+      duration: video.duration, 
       thumbnail: video.thumbnail
     }));
     // フィルタリング用の配列も更新
@@ -1391,6 +1391,7 @@
     showSnackbar("動画データの取得に失敗しました");
   }
 }
+
 
 
     // Elements (Cache DOM elements)
@@ -1748,45 +1749,41 @@
     // --- Event Handlers for Delegated List Clicks ---
 
     function handlePlaylistClick(event) {
-        const target = event.target;
-        const playlistItem = target.closest('.playlist-item');
-        const favoriteBtn = target.closest('.favorite-btn');
-        const addToPlaylistBtn = target.closest('.add-to-playlist-btn');
-        const selectPlaylistLink = target.closest('.select-playlist'); // Handle clicks on links inside dropdown
+  const target = event.target;
+  const playlistItem = target.closest('.playlist-item');
+  const favoriteBtn = target.closest('.favorite-btn');
+  const addToPlaylistBtn = target.closest('.add-to-playlist-btn');
+  const selectPlaylistLink = target.closest('.select-playlist'); // ドロップダウン内のリンクのクリック処理
 
-        if (favoriteBtn && playlistItem) {
-            event.stopPropagation();
-            const songId = favoriteBtn.dataset.id;
-            toggleFavorite(songId);
-        } else if (addToPlaylistBtn && playlistItem) {
-            event.stopPropagation();
-            togglePlaylistDropdown(addToPlaylistBtn);
-        } else if (selectPlaylistLink) {
-             event.preventDefault();
-             event.stopPropagation();
-             const songId = selectPlaylistLink.dataset.id;
-             const playlistId = selectPlaylistLink.dataset.playlistid;
-             addSongToPlaylist(songId, playlistId);
-             // Close the dropdown after selection
-             const dropdown = selectPlaylistLink.closest('.dropdown-menu');
-             if (dropdown) dropdown.classList.add('hidden');
-        } else if (playlistItem) {
-             // Clicked on the item itself (not buttons inside)
-             const index = parseInt(playlistItem.dataset.index);
-             // Make sure the index corresponds to the currently filtered list
-             if (!isNaN(index) && index >= 0 && index < appState.filteredSongs.length) {
-                 const songIdToPlay = appState.filteredSongs[index].id;
-                 // Find the original index in the main `appState.songs` list
-                 const originalIndex = appState.songs.findIndex(song => song.id === songIdToPlay);
-                 if (originalIndex !== -1) {
-                     playSong(originalIndex);
-                 }
-             }
-        } else {
-             // Clicked outside any specific item/button, maybe close dropdowns
-             closeAllPlaylistDropdowns();
-        }
+  if (favoriteBtn && playlistItem) {
+    event.stopPropagation();
+    const songId = favoriteBtn.dataset.id;
+    toggleFavorite(songId);
+  } else if (addToPlaylistBtn && playlistItem) {
+    event.stopPropagation();
+    togglePlaylistDropdown(addToPlaylistBtn);
+  } else if (selectPlaylistLink) {
+    event.preventDefault();
+    event.stopPropagation();
+    const songId = selectPlaylistLink.dataset.id;
+    const playlistId = selectPlaylistLink.dataset.playlistid;
+    addSongToPlaylist(songId, playlistId);
+    // ドロップダウンを閉じる
+    const dropdown = selectPlaylistLink.closest('.dropdown-menu');
+    if (dropdown) dropdown.classList.add('hidden');
+  } else if (playlistItem) {
+    // クリックされたアイテムの data-id 属性を利用して曲を特定する
+    const songId = playlistItem.dataset.id;
+    const originalIndex = appState.songs.findIndex(song => song.id === songId);
+    if (originalIndex !== -1) {
+      playSong(originalIndex);
     }
+  } else {
+    // 特定のアイテム以外がクリックされた場合、ドロップダウンを閉じるなど
+    closeAllPlaylistDropdowns();
+  }
+}
+
 
      function handleHistoryClick(event) {
          const target = event.target;
@@ -1938,15 +1935,46 @@
 
     // Render UI Functions
     function renderPlaylist() {
-      renderList(
-          elements.playlist,
-          appState.filteredSongs,
-          'playlist-item',
-          (song, index) => `data-index="${index}"`, // Use filtered index for clicks
-          true // Show add to playlist etc.
-      );
-       updateActiveListItem(); // Highlight active song if it's in the filtered list
+  const items = appState.filteredSongs;
+  const container = elements.playlist;
+  container.innerHTML = ''; // 一旦クリア
+  let index = 0;
+  const chunkSize = 20; // 一度にレンダリングする件数
+
+  function renderChunk() {
+    const chunk = items.slice(index, index + chunkSize);
+    chunk.forEach((song, i) => {
+      // お気に入り状態を判定
+      const isFavorite = appState.favorites.some(fav => fav.id === song.id);
+      container.innerHTML += `
+        <div class="playlist-item p-3 flex items-center justify-between cursor-pointer" data-id="${song.id}">
+          <div class="flex items-center overflow-hidden mr-2 flex-grow min-w-0">
+            <div class="w-10 h-10 rounded overflow-hidden mr-3 flex-shrink-0">
+              <img src="${song.thumbnail}" alt="${escapeHTML(song.title)}" class="w-full h-full object-cover" loading="lazy">
+            </div>
+            <div class="flex-grow overflow-hidden min-w-0">
+              <h3 class="text-sm font-medium truncate">${escapeHTML(song.title)}</h3>
+              <p class="text-xs opacity-75">${song.duration || '--:--'}</p>
+            </div>
+          </div>
+          <div class="flex items-center flex-shrink-0 ml-2">
+            <button class="favorite-btn text-lg mr-2 focusable" data-id="${song.id}" aria-label="${isFavorite ? 'お気に入り解除' : 'お気に入り登録'}">
+              <i class="fas fa-heart ${isFavorite ? 'text-red-500' : 'text-gray-400'}"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+    index += chunkSize;
+    if (index < items.length) {
+      setTimeout(renderChunk, 0); // イベントループに処理を譲る
+    } else {
+      updateActiveListItem();
     }
+  }
+  renderChunk();
+}
+
 
     function renderHistoryList() {
       // Display history in reverse chronological order (newest first)
@@ -2154,51 +2182,54 @@
 
     // --- Player Control Functions ---
     function playSong(originalIndex) {
-        if (!appState.isPlayerReady) {
-            showSnackbar("プレイヤーの準備ができていません。");
-            console.warn("playSong called before player is ready.");
-            return;
-        }
-        if (originalIndex >= 0 && originalIndex < appState.songs.length) {
-            appState.currentSongIndex = originalIndex;
-            const currentSong = appState.songs[originalIndex];
+  if (!appState.isPlayerReady) {
+    showSnackbar("プレイヤーの準備ができていません。");
+    console.warn("playSong called before player is ready.");
+    return;
+  }
+  if (originalIndex >= 0 && originalIndex < appState.songs.length) {
+    appState.currentSongIndex = originalIndex;
+    const currentSong = appState.songs[originalIndex];
 
-            if (!currentSong || !currentSong.id) {
-                console.error("Invalid song data at index:", originalIndex);
-                showSnackbar("曲データの読み込みに失敗しました。");
-                return;
-            }
-
-            elements.currentSongTitle.textContent = currentSong.title;
-            elements.currentSongDuration.textContent = currentSong.duration || '--:--';
-
-            try {
-                 if (appState.player && typeof appState.player.loadVideoById === 'function') {
-                     console.log(`Loading video: ${currentSong.id} (${currentSong.title})`);
-                     appState.player.loadVideoById(currentSong.id);
-                     // Play is handled by onStateChange BUFFERING -> CUED -> PLAYING usually
-                     // For reliability, explicitly call playVideo after a short delay or in CUED state?
-                     // Let's rely on state change for now, but keep playVideo() call in togglePlayPause.
-                 } else {
-                     throw new Error("Player or loadVideoById not available.");
-                 }
-            } catch (error) {
-                 console.error("Error loading video:", error);
-                 showSnackbar("動画の読み込みに失敗しました。");
-                 resetPlayerInfo();
-                 return; // Stop further execution for this song
-            }
-
-            updateActiveListItem(); // Highlight the playing song in the visible list
-
-            // Update share/youtube buttons (will be enabled by onStateChange)
-             elements.shareBtn.disabled = true;
-             elements.openYouTubeBtn.disabled = true; // Enable once cued or playing
-
-        } else {
-            console.warn("Invalid song index requested:", originalIndex);
-        }
+    if (!currentSong || !currentSong.id) {
+      console.error("Invalid song data at index:", originalIndex);
+      showSnackbar("曲データの読み込みに失敗しました。");
+      return;
     }
+
+    // 動画IDを trim() して不要な空白を除去
+    const cleanVideoId = currentSong.id.trim();
+
+    elements.currentSongTitle.textContent = currentSong.title;
+    elements.currentSongDuration.textContent = currentSong.duration || '--:--';
+
+    try {
+      if (appState.player && typeof appState.player.loadVideoById === 'function') {
+        console.log(`Loading video: ${cleanVideoId} (${currentSong.title})`);
+        appState.player.loadVideoById(cleanVideoId);
+        // loadVideoById の直後に少し遅延させてから再生開始
+        setTimeout(() => {
+          appState.player.playVideo();
+        }, 500);
+      } else {
+        throw new Error("Player or loadVideoById not available.");
+      }
+    } catch (error) {
+      console.error("Error loading video:", error);
+      showSnackbar("動画の読み込みに失敗しました。");
+      resetPlayerInfo();
+      return;
+    }
+
+    updateActiveListItem(); // 再生中の曲をハイライト
+
+    // 再生に伴うUI更新（共有ボタンなど）
+    elements.shareBtn.disabled = true;
+    elements.openYouTubeBtn.disabled = true;
+  } else {
+    console.warn("Invalid song index requested:", originalIndex);
+  }
+}
 
     function togglePlayPause() {
         if (!appState.isPlayerReady) {
@@ -3458,59 +3489,78 @@
       channelId: 'UCYAuSEKhuk3v4ZKzm5Lqb1Q',
       
       // 最新の動画を取得する関数
-      async getLatestVideos(maxResults = 15) {
-        try {
-          // チャンネルのアップロード済みプレイリストIDを取得
-          const channelResponse = await fetch(
-            `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${this.channelId}&key=${this.apiKey}`
-          );
-          
-          if (!channelResponse.ok) {
-            throw new Error('チャンネル情報の取得に失敗しました');
-          }
-          
-          const channelData = await channelResponse.json();
-          
-          if (!channelData.items || channelData.items.length === 0) {
-            throw new Error('チャンネルが見つかりません');
-          }
-          
-          const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
-          
-          // アップロード済みプレイリストから動画を取得
-          const playlistResponse = await fetch(
-            `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=${maxResults}&playlistId=${uploadsPlaylistId}&key=${this.apiKey}`
-          );
-          
-          if (!playlistResponse.ok) {
-            throw new Error('プレイリスト情報の取得に失敗しました');
-          }
-          
-          const playlistData = await playlistResponse.json();
-          
-          if (!playlistData.items || playlistData.items.length === 0) {
-            return [];
-          }
-          
-          // 必要な情報だけを抽出して返す
-          return playlistData.items.map(item => {
-            const snippet = item.snippet;
-            return {
-              id: snippet.resourceId.videoId,
-              title: snippet.title,
-              description: snippet.description,
-              thumbnail: snippet.thumbnails.high.url,
-              publishedAt: snippet.publishedAt,
-              // 動画の長さは別のAPIコールが必要なので、ここでは仮の値を設定
-              duration: '3:00'
-            };
-          });
-        } catch (error) {
-          console.error('YouTube APIエラー:', error);
-          showSnackbar('YouTube動画の取得に失敗しました');
-          return [];
-        }
-      },
+      async getLatestVideos() {
+  try {
+    // ① チャンネルのアップロード済みプレイリストIDを取得
+    const channelResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${this.channelId}&key=${this.apiKey}`
+    );
+    
+    if (!channelResponse.ok) {
+      throw new Error('チャンネル情報の取得に失敗しました');
+    }
+    
+    const channelData = await channelResponse.json();
+    
+    if (!channelData.items || channelData.items.length === 0) {
+      throw new Error('チャンネルが見つかりません');
+    }
+    
+    const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
+    
+    // ② ページネーションを利用して全ての動画データを取得する
+    let videos = [];
+    let nextPageToken = '';
+    // ③ ページ数の上限を設定（例：最大5ページ）
+    let pageCount = 0;
+    const maxPages = 5;
+    
+    do {
+      let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsPlaylistId}&key=${this.apiKey}`;
+      if (nextPageToken) {
+        url += `&pageToken=${nextPageToken}`;
+      }
+      
+      const playlistResponse = await fetch(url);
+      if (!playlistResponse.ok) {
+        throw new Error('プレイリスト情報の取得に失敗しました');
+      }
+      
+      const playlistData = await playlistResponse.json();
+      
+      if (playlistData.items) {
+        videos.push(...playlistData.items);
+      }
+      
+      nextPageToken = playlistData.nextPageToken;
+      
+      // ④ ページ数をカウントして上限に達したらループ終了
+      pageCount++;
+      if (pageCount >= maxPages) {
+        console.log(`最大ページ数 ${maxPages} に達しました。`);
+        break;
+      }
+    } while (nextPageToken);
+    
+    // ⑤ 必要な情報だけを抽出して返す
+    return videos.map(item => {
+      const snippet = item.snippet;
+      return {
+        id: snippet.resourceId.videoId,
+        title: snippet.title,
+        description: snippet.description,
+        thumbnail: snippet.thumbnails.high.url,
+        publishedAt: snippet.publishedAt,
+        // 動画の長さは別途 API コールが必要なため、ここでは仮の値を設定
+        duration: '3:00'
+      };
+    });
+  } catch (error) {
+    console.error('YouTube APIエラー:', error);
+    showSnackbar('YouTube動画の取得に失敗しました');
+    return [];
+  }
+},
       
       // 動画の詳細情報を取得する関数（長さなど）
       async getVideoDetails(videoIds) {
