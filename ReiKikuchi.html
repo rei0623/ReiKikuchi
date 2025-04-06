@@ -1368,25 +1368,30 @@
           canvasCtx: null,
       }
     };
+    async function loadSongsFromYouTube() {
+  try {
+    // 例：最新15件の動画データを取得
+    const videos = await youtubeAPI.getLatestVideos(15);
+    if (videos.length === 0) {
+      showSnackbar("新しい動画は見つかりませんでした");
+      return;
+    }
+    // 取得した動画情報をプレイヤー用の形式に変換して設定
+    appState.songs = videos.map(video => ({
+      id: video.id,
+      title: video.title,
+      duration: video.duration, // 動画詳細で取得した duration を利用
+      thumbnail: video.thumbnail
+    }));
+    // フィルタリング用の配列も更新
+    appState.filteredSongs = [...appState.songs];
+    renderPlaylist(); // プレイリストの表示を更新
+  } catch (error) {
+    console.error("動画データの取得に失敗しました", error);
+    showSnackbar("動画データの取得に失敗しました");
+  }
+}
 
-    // Mock data (keep as is for now)
-    const mockSongs = [
-      { id: 'o3BudA6Qm6Y', title: 'Silence Speaks', duration: '3:47', thumbnail: 'https://i.ytimg.com/vi/o3BudA6Qm6Y/hqdefault.jpg' },
-      { id: 'TA9tWaBI6Z0', title: 'Same Air', duration: '3:15', thumbnail: 'https://i.ytimg.com/vi/TA9tWaBI6Z0/hqdefault.jpg' },
-      { id: '0x7Hp6z9hWc', title: 'Stillness', duration: '2:41', thumbnail: 'https://i.ytimg.com/vi/0x7Hp6z9hWc/hqdefault.jpg' },
-      { id: 'mOmaFBpWzWc', title: 'Midnight Heal', duration: '3:32', thumbnail: 'https://i.ytimg.com/vi/mOmaFBpWzWc/hqdefault.jpg' },
-      { id: 'B30PEObE6-A', title: 'CLOSER', duration: '3:24', thumbnail: 'https://i.ytimg.com/vi/B30PEObE6-A/hqdefault.jpg' },
-      { id: 'O3l5pDX3IvY', title: 'Remedy', duration: '3:16', thumbnail: 'https://i.ytimg.com/vi/O3l5pDX3IvY/hqdefault.jpg' },
-      { id: 'NU3xhDh6-i4', title: 'Silver Dance', duration: '3:21', thumbnail: 'https://i.ytimg.com/vi/NU3xhDh6-i4/hqdefault.jpg' },
-      { id: 'CKEmbHmZLe0', title: 'UNCHARTED', duration: '3:24', thumbnail: 'https://i.ytimg.com/vi/CKEmbHmZLe0/hqdefault.jpg' },
-      { id: '5g_NED3mmu4', title: 'STUCK DRAFTS', duration: '2:56', thumbnail: 'https://i.ytimg.com/vi/5g_NED3mmu4/hqdefault.jpg' },
-      { id: 'T6WsvPckDCQ', title: 'Rainfall', duration: '3:19', thumbnail: 'https://i.ytimg.com/vi/T6WsvPckDCQ/hqdefault.jpg' },
-      { id: 'YfJOR67Ah1s', title: 'Silent Embrace', duration: '3:30', thumbnail: 'https://i.ytimg.com/vi/YfJOR67Ah1s/hqdefault.jpg' },
-      { id: 'EUoUvL-C9Lo', title: 'Boundless', duration: '3:18', thumbnail: 'https://i.ytimg.com/vi/EUoUvL-C9Lo/hqdefault.jpg' },
-      { id: 'o95ErWDgKvw', title: 'Petal Breeze', duration: '3:19', thumbnail: 'https://i.ytimg.com/vi/o95ErWDgKvw/hqdefault.jpg' },
-      { id: '-XaxvaufRCY', title: 'Unscripted', duration: '3:12', thumbnail: 'https://i.ytimg.com/vi/-XaxvaufRCY/hqdefault.jpg' },
-      { id: 'BHgfXyZLwxE', title: 'Stonefall', duration: '3:22', thumbnail: 'https://i.ytimg.com/vi/BHgfXyZLwxE/hqdefault.jpg' }
-    ];
 
     // Elements (Cache DOM elements)
     const elements = {
@@ -1489,19 +1494,20 @@
     }
 
     function onPlayerReady(event) {
-      console.log("Player Ready");
-      appState.isPlayerReady = true;
-      // Ensure volume is set correctly on ready
-      elements.volumeSlider.value = appState.volume;
-      event.target.setVolume(appState.volume);
+  console.log("Player Ready");
+  appState.isPlayerReady = true;
+  elements.volumeSlider.value = appState.volume;
+  event.target.setVolume(appState.volume);
 
-      loadSongs();
-      loadUserData(); // Load user data and theme preference
-      initAudioAnalyser();
-      setupEventListeners();
-      // Attempt to load shared content if URL param exists
-      handleUrlParams();
-    }
+  // loadSongs();  // 旧モックデータの読み込みはコメントアウト
+  loadSongsFromYouTube();  // APIから最新動画を取得して読み込む
+
+  loadUserData();
+  initAudioAnalyser();
+  setupEventListeners();
+  handleUrlParams();
+}
+
 
     function onPlayerStateChange(event) {
       console.log("Player State Changed:", event.data);
