@@ -1241,66 +1241,73 @@
       </div>
     </div>
 
-    <div id="account-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
-      <div class="modal-content">
-        <div class="flex justify-between items-center mb-4">
-          <h3 id="account-modal-title" class="text-lg font-bold">アカウント設定</h3>
-          <button class="modal-close-btn close-modal-btn" data-modal-id="account" aria-label="閉じる">×</button>
-        </div>
+  <!-- アカウントモーダル（アップグレード版） -->
+<div id="account-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full p-6">
+    <!-- ヘッダー -->
+    <div class="flex justify-between items-center mb-4">
+      <h3 id="account-modal-title" class="text-lg font-bold text-gray-800 dark:text-gray-200">アカウント設定</h3>
+      <button class="modal-close-btn text-2xl leading-none" data-modal-id="account" aria-label="閉じる">×</button>
+    </div>
 
-        <div id="login-section">
-          <div class="mb-4">
-            <label for="login-email" class="block text-sm mb-2">メールアドレス</label>
-            <input type="email" id="login-email" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
-          </div>
-          <div class="mb-4">
-            <label for="login-password" class="block text-sm mb-2">パスワード</label>
-            <input type="password" id="login-password" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
-          </div>
-          <div class="mb-4">
-            <button id="login-btn" class="px-4 py-2 rounded text-white mr-2 focusable" style="background-color: var(--primary-color);">ログイン</button>
-            <button id="show-register-btn" class="px-4 py-2 rounded focusable" style="background-color: var(--border-color);">新規登録</button>
-          </div>
-        </div>
-
-        <div id="register-section" class="hidden">
-           <div class="mb-4">
-            <label for="register-name" class="block text-sm mb-2">ユーザー名</label>
-            <input type="text" id="register-name" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
-          </div>
-          <div class="mb-4">
-            <label for="register-email" class="block text-sm mb-2">メールアドレス</label>
-            <input type="email" id="register-email" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
-          </div>
-          <div class="mb-4">
-            <label for="register-password" class="block text-sm mb-2">パスワード</label>
-            <input type="password" id="register-password" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
-          </div>
-          <div class="mb-4">
-            <button id="register-btn" class="px-4 py-2 rounded text-white mr-2 focusable" style="background-color: var(--primary-color);">登録</button>
-            <button id="show-login-btn" class="px-4 py-2 rounded focusable" style="background-color: var(--border-color);">ログインに戻る</button>
-          </div>
-        </div>
-
-        <div id="account-info-section" class="hidden">
-          <div class="mb-4 text-center">
-            <div class="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center mx-auto mb-2">
-              <i class="fas fa-user text-3xl"></i>
-            </div>
-            <h4 id="user-name" class="font-bold"></h4>
-            <p id="user-email" class="text-sm opacity-75"></p>
-          </div>
-          <div class="mb-4">
-            <button id="sync-data-btn" class="w-full px-4 py-2 rounded mb-2 focusable" style="background-color: var(--border-color);">
-              <i class="fas fa-sync mr-2"></i> データを同期
-            </button>
-            <button id="logout-btn" class="w-full px-4 py-2 rounded text-white focusable" style="background-color: var(--accent-color);">
-              <i class="fas fa-sign-out-alt mr-2"></i> ログアウト
-            </button>
-          </div>
-        </div>
+    <!-- ログインセクション -->
+    <div id="login-section">
+      <div class="mb-4">
+        <label for="login-email" class="block text-sm mb-2 text-gray-700 dark:text-gray-300">メールアドレス</label>
+        <input type="email" id="login-email" class="w-full px-3 py-2 border rounded focus:outline-none" style="border-color: var(--border-color); background-color: var(--card-color);">
+      </div>
+      <div class="mb-4">
+        <label for="login-password" class="block text-sm mb-2 text-gray-700 dark:text-gray-300">パスワード</label>
+        <input type="password" id="login-password" class="w-full px-3 py-2 border rounded focus:outline-none" style="border-color: var(--border-color); background-color: var(--card-color);">
+      </div>
+      <div class="mb-4 flex space-x-2">
+        <button id="login-btn" class="px-4 py-2 rounded text-white focus:outline-none" style="background-color: var(--primary-color);">ログイン</button>
+        <button id="show-register-btn" class="px-4 py-2 rounded focus:outline-none" style="background-color: var(--border-color);">新規登録</button>
       </div>
     </div>
+
+    <!-- 登録セクション -->
+    <div id="register-section" class="hidden">
+      <div class="mb-4">
+        <label for="register-name" class="block text-sm mb-2 text-gray-700 dark:text-gray-300">ユーザー名</label>
+        <input type="text" id="register-name" class="w-full px-3 py-2 border rounded focus:outline-none" style="border-color: var(--border-color); background-color: var(--card-color);">
+      </div>
+      <div class="mb-4">
+        <label for="register-email" class="block text-sm mb-2 text-gray-700 dark:text-gray-300">メールアドレス</label>
+        <input type="email" id="register-email" class="w-full px-3 py-2 border rounded focus:outline-none" style="border-color: var(--border-color); background-color: var(--card-color);">
+      </div>
+      <div class="mb-4">
+        <label for="register-password" class="block text-sm mb-2 text-gray-700 dark:text-gray-300">パスワード</label>
+        <input type="password" id="register-password" class="w-full px-3 py-2 border rounded focus:outline-none" style="border-color: var(--border-color); background-color: var(--card-color);">
+      </div>
+      <div class="mb-4 flex space-x-2">
+        <button id="register-btn" class="px-4 py-2 rounded text-white focus:outline-none" style="background-color: var(--primary-color);">登録</button>
+        <button id="show-login-btn" class="px-4 py-2 rounded focus:outline-none" style="background-color: var(--border-color);">ログインに戻る</button>
+      </div>
+    </div>
+
+    <!-- アカウント情報セクション -->
+    <div id="account-info-section" class="hidden">
+      <div class="mb-4 text-center">
+        <div class="w-16 h-16 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center mx-auto mb-2">
+          <i class="fas fa-user text-3xl text-gray-700 dark:text-gray-200"></i>
+        </div>
+        <h4 id="user-name" class="font-bold text-gray-800 dark:text-gray-200"></h4>
+        <p id="user-email" class="text-sm opacity-75 text-gray-700 dark:text-gray-300"></p>
+      </div>
+      <div class="mb-4 space-y-2">
+        <button id="sync-data-btn" class="w-full px-4 py-2 rounded focus:outline-none" style="background-color: var(--border-color);">
+          <i class="fas fa-sync mr-2"></i> データを同期
+        </button>
+        <button id="logout-btn" class="w-full px-4 py-2 rounded text-white focus:outline-none" style="background-color: var(--accent-color);">
+          <i class="fas fa-sign-out-alt mr-2"></i> ログアウト
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 
     <div id="playlist-detail-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="playlist-detail-modal-title">
        <div class="modal-content max-h-[80vh]">
@@ -2817,12 +2824,11 @@
       window.open(youtubeUrl, '_blank'); // Open in new tab
     }
 
-    // --- Account Functions ---
     function showAccountModal() {
   console.log("showAccountModal() が呼ばれました");
   if (appState.loggedInUser) {
     updateAccountUI(true);
-    switchAuthSection('account');
+    switchAuthSection('account');  // この中で accountInfo から hidden を削除
   } else {
     updateAccountUI(false);
     switchAuthSection('login');
@@ -2831,23 +2837,23 @@
 }
 
 
-    function switchAuthSection(section) {
-      elements.accountSections.login.classList.add('hidden');
-      elements.accountSections.register.classList.add('hidden');
-      elements.accountSections.accountInfo.classList.add('hidden');
 
-      const sectionToShow = elements.accountSections[section];
-      if (sectionToShow) {
-          sectionToShow.classList.remove('hidden');
-          // Focus the first focusable element in the new section
-          const firstFocusable = sectionToShow.querySelector('.focusable');
-          if(firstFocusable && appState.activeModalId === 'account') { // Only focus if modal is active
-             setTimeout(() => firstFocusable.focus(), 100); // Delay ensures visibility
-          }
-      } else {
-          console.warn("Invalid auth section requested:", section);
-      }
+function switchAuthSection(section) {
+    console.log("切り替え処理：", section);
+    elements.accountSections.login.classList.add('hidden');
+    elements.accountSections.register.classList.add('hidden');
+    elements.accountSections.accountInfo.classList.add('hidden');
+
+    const sectionToShow = elements.accountSections[section];
+    if (sectionToShow) {
+        sectionToShow.classList.remove('hidden');
+        // フォーカス設定などもここで行う
+        console.log(`${section} セクションが表示されました`);
+    } else {
+        console.warn("無効なセクション:", section);
     }
+}
+
 
     // Mock login/register/logout/sync remain the same as before, adding focus management
 
@@ -2952,36 +2958,35 @@
 
 
     function updateAccountUI(isLoggedIn) {
-        if (isLoggedIn && appState.loggedInUser) {
-            // If modal is open, switch section; otherwise just update button state
-            if (appState.activeModalId === 'account') {
-                 switchAuthSection('account');
-            }
-            elements.accountFields.userName.textContent = appState.loggedInUser.name;
-            elements.accountFields.userEmail.textContent = appState.loggedInUser.email;
-            elements.modalButtons.account.innerHTML = '<i class="fas fa-user-check"></i>';
-            elements.modalButtons.account.classList.remove('btn-inactive');
-            elements.modalButtons.account.classList.add('btn-active');
-             elements.modalButtons.account.setAttribute('aria-label', 'アカウント (ログイン済み)');
-        } else {
-            if (appState.activeModalId === 'account') {
-                switchAuthSection('login');
-            }
-            elements.modalButtons.account.innerHTML = '<i class="fas fa-user"></i>';
-            elements.modalButtons.account.classList.add('btn-inactive');
-            elements.modalButtons.account.classList.remove('btn-active');
-             elements.modalButtons.account.setAttribute('aria-label', 'アカウント (未ログイン)');
-        }
-        // Re-render lists impacted by login state (e.g., add to playlist availability)
-         // Check if elements exist before rendering (might be called early)
-         if (elements.playlist && elements.historyList && elements.favoritesList && elements.userPlaylistsList) {
-             renderPlaylist();
-             renderHistoryList();
-             renderFavoritesList();
-             renderUserPlaylists();
-         }
-    }
-
+  if (isLoggedIn && appState.loggedInUser) {
+    // ユーザー情報を設定
+    elements.accountFields.userName.textContent = appState.loggedInUser.name;
+    elements.accountFields.userEmail.textContent = appState.loggedInUser.email;
+    elements.modalButtons.account.innerHTML = '<i class="fas fa-user-check"></i>';
+    elements.modalButtons.account.classList.remove('btn-inactive');
+    elements.modalButtons.account.classList.add('btn-active');
+    elements.modalButtons.account.setAttribute('aria-label', 'アカウント (ログイン済み)');
+    
+    // ログイン済みならアカウント情報セクションを表示
+    elements.accountSections.accountInfo.classList.remove('hidden');
+  } else {
+    elements.modalButtons.account.innerHTML = '<i class="fas fa-user"></i>';
+    elements.modalButtons.account.classList.add('btn-inactive');
+    elements.modalButtons.account.classList.remove('btn-active');
+    elements.modalButtons.account.setAttribute('aria-label', 'アカウント (未ログイン)');
+    
+    // 未ログインならログインセクションを表示
+    elements.accountSections.login.classList.remove('hidden');
+  }
+  
+  // その他のリストの再描画処理…
+  if (elements.playlist && elements.historyList && elements.favoritesList && elements.userPlaylistsList) {
+    renderPlaylist();
+    renderHistoryList();
+    renderFavoritesList();
+    renderUserPlaylists();
+  }
+}
 
     // --- Utility Functions ---
     function formatTime(seconds) {
@@ -3137,33 +3142,38 @@
     // --- Modal Management ---
     let lastFocusedElement = null; // Store element focused before modal opens
 
-     function showModal(modalId) {
-         const modal = elements.modals[modalId];
-         if (modal && appState.activeModalId !== modalId) { // Prevent opening if already open
-             // Store the element that has focus before opening the modal
-             lastFocusedElement = document.activeElement;
+    function showModal(modalId) {
+  const modal = elements.modals[modalId];
+  if (modal && appState.activeModalId !== modalId) { // Prevent opening if already open
+    // Store the element that has focus before opening the modal
+    lastFocusedElement = document.activeElement;
 
-             modal.style.display = 'flex';
-             appState.activeModalId = modalId;
-             document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    // Remove Tailwind hidden class to allow display
+    modal.classList.remove('hidden');
+    
+    // Set inline style in case you rely on it
+    modal.style.display = 'flex';
+    appState.activeModalId = modalId;
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
 
-             // Focus trap: find all focusable elements within the modal
-             const focusableElements = modal.querySelectorAll('.focusable, button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-             const firstFocusable = focusableElements[0];
-             const lastFocusable = focusableElements[focusableElements.length - 1];
+    // Focus trap: find all focusable elements within the modal
+    const focusableElements = modal.querySelectorAll('.focusable, button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
 
-              // Set initial focus (usually the first element or a specific one)
-              if (firstFocusable) {
-                  setTimeout(() => firstFocusable.focus(), 50); // Delay helps ensure modal is fully visible
-              }
+    // Set initial focus (usually the first element or a specific one)
+    if (firstFocusable) {
+      setTimeout(() => firstFocusable.focus(), 50); // Delay helps ensure modal is fully visible
+    }
 
-             // Add keydown listener for focus trapping and Escape key
-             modal.currentKeyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId);
-             modal.addEventListener('keydown', modal.currentKeyDownListener);
+    // Add keydown listener for focus trapping and Escape key
+    modal.currentKeyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId);
+    modal.addEventListener('keydown', modal.currentKeyDownListener);
 
-             console.log("Modal shown:", modalId);
-         }
-     }
+    console.log("Modal shown:", modalId);
+  }
+}
+
 
      function hideModal(modalId) {
          const modal = elements.modals[modalId];
