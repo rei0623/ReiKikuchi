@@ -1183,18 +1183,19 @@
             </div>
           </div>
 
-          <div id="user-playlists-tab" class="tab-content hidden" role="tabpanel">
-            <div class="mb-4">
-              <button id="create-playlist-btn" class="px-3 py-1 rounded-md text-sm mb-4" style="background-color: var(--primary-color); color: white;">
-                <i class="fas fa-plus mr-1"></i> 新しいプレイリスト
-              </button>
-            </div>
-            <div class="playlist user-playlists-list" id="user-playlists-list">
-              <div class="text-center py-8 text-gray-500">
-                <p>マイプレイリストはありません</p>
+          <!-- マイプレイリストタブ部分（HTML） -->
+<div id="user-playlists-tab" class="tab-content hidden" role="tabpanel">
+  <div class="mb-4">
+    <button id="create-playlist-btn" class="px-3 py-1 rounded-md text-sm mb-4" style="background-color: var(--primary-color); color: white;">
+      <i class="fas fa-plus mr-1"></i> 新しいプレイリスト
+    </button>
+  </div>
+  <div class="playlist user-playlists-list" id="user-playlists-list">
+    <div class="text-center py-8 text-gray-500">
+      <p>マイプレイリストはありません</p>
               </div>
             </div>
-          </div>
+          </div>          
         </div>
       </div>
     </div>
@@ -2091,56 +2092,74 @@
      }
 
 
-    function renderUserPlaylists() {
-      if (!elements.userPlaylistsList) return;
+    // ユーザープレイリスト用の状態を保存する配列（既存の appState.userPlaylists を利用）
+// 初期化：localStorage からユーザープレイリストを読み込み
+appState.userPlaylists = JSON.parse(localStorage.getItem('userPlaylists')) || [];
 
-      if (!appState.loggedInUser) {
-          elements.userPlaylistsList.innerHTML = `
-              <div class="text-center py-8 text-gray-500">
-                  <p>ログインするとマイプレイリストが利用できます</p>
-              </div>
-          `;
-          elements.createPlaylistBtn.classList.add('hidden');
-          return;
-      }
+// プレイリスト一覧描画用関数
+function renderUserPlaylists() {
+  const container = document.getElementById('user-playlists-list');
+  container.innerHTML = ''; // まずクリア
 
-      elements.createPlaylistBtn.classList.remove('hidden');
+  if (appState.userPlaylists.length === 0) {
+    container.innerHTML = `<div class="text-center py-8 text-gray-500"><p>マイプレイリストはありません</p></div>`;
+    return;
+  }
 
-      if (appState.userPlaylists.length === 0) {
-        elements.userPlaylistsList.innerHTML = `
-          <div class="text-center py-8 text-gray-500">
-            <p>マイプレイリストはありません</p>
-          </div>
-        `;
-        return;
-      }
+  appState.userPlaylists.forEach(playlist => {
+    const div = document.createElement('div');
+    div.className = 'user-playlist-item p-3 flex items-center justify-between cursor-pointer';
+    div.dataset.id = playlist.id;
+    div.innerHTML = `
+      <span class="font-medium truncate mr-2">${playlist.name}</span>
+      <button class="playlist-delete-btn text-sm text-red-500" data-id="${playlist.id}">削除</button>
+    `;
+    container.appendChild(div);
+  });
+}
 
-      let playlistsHTML = '';
-      appState.userPlaylists.forEach(playlist => {
-          if (!playlist || !playlist.id) {
-               console.warn("Invalid playlist data encountered:", playlist);
-               return;
-          }
-          playlistsHTML += `
-          <div class="user-playlist-item cursor-pointer" data-id="${playlist.id}">
-            <span class="font-medium truncate mr-2 flex-grow min-w-0">${escapeHTML(playlist.name)}</span>
-            <div class="user-playlist-actions flex items-center flex-shrink-0 ml-2">
-              <span class="playlist-count">${playlist.songs?.length ?? 0}</span>
-              <button class="playlist-play-btn text-sm ml-2 focusable" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)}を再生">
-                <i class="fas fa-play"></i>
-              </button>
-              <button class="playlist-edit-btn text-sm ml-2 focusable" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)}を編集">
-                <i class="fas fa-pencil-alt"></i>
-              </button>
-               <button class="playlist-delete-btn text-sm ml-2 text-red-500 focusable" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)}を削除">
-                 <i class="fas fa-trash"></i>
-               </button>
-            </div>
-          </div>
-        `;
-      });
-      elements.userPlaylistsList.innerHTML = playlistsHTML;
+// イベントリスナー：新規プレイリスト作成
+document.getElementById('create-playlist-btn').addEventListener('click', () => {
+  // ログインチェック（未ログインの場合は作成不可）
+  if (!appState.loggedInUser) {
+    showSnackbar('プレイリストを作成するにはログインしてください');
+    return;
+  }
+
+  // シンプルに prompt を利用してプレイリスト名を入力（必要なら専用モーダルに置き換え）
+  const playlistName = prompt('新しいプレイリストの名前を入力してください:');
+  if (!playlistName) return; // キャンセル時は何もしない
+
+  // 新規プレイリスト作成
+  const newPlaylist = {
+    id: 'pl_' + Date.now(), // 一意なID（簡易版）
+    name: playlistName,
+    songs: [] // 初期は空のリスト
+  };
+
+  appState.userPlaylists.push(newPlaylist);
+  localStorage.setItem('userPlaylists', JSON.stringify(appState.userPlaylists));
+  renderUserPlaylists();
+  showSnackbar(`プレイリスト「${playlistName}」を作成しました`);
+});
+
+// イベントリスナー：プレイリスト削除（イベントデリゲーション）
+document.getElementById('user-playlists-list').addEventListener('click', function(e) {
+  const deleteBtn = e.target.closest('.playlist-delete-btn');
+  if (deleteBtn) {
+    const playlistId = deleteBtn.dataset.id;
+    if (confirm('このプレイリストを削除してもよろしいですか？')) {
+      appState.userPlaylists = appState.userPlaylists.filter(p => p.id !== playlistId);
+      localStorage.setItem('userPlaylists', JSON.stringify(appState.userPlaylists));
+      renderUserPlaylists();
+      showSnackbar('プレイリストを削除しました');
     }
+  }
+});
+
+// 初期化時に一覧を描画
+renderUserPlaylists();
+
 
     function renderPlaylistDetail(playlist) {
       if (!playlist || !playlist.id) {
@@ -2572,16 +2591,19 @@
 
     // --- Playlist Functions ---
     function showCreatePlaylistModal() {
-      if (!appState.loggedInUser) {
-        showAccountModal(); // Prompt login first
-        showSnackbar('プレイリストを作成するにはログインしてください');
-        return;
-      }
-      elements.playlistElements.nameInput.value = '';
-      showModal('createPlaylist');
-      // Focus the input field after the modal is shown
-      setTimeout(() => elements.playlistElements.nameInput.focus(), 100);
-    }
+  if (!appState.loggedInUser) {
+    showAccountModal(); // ログイン促す
+    showSnackbar('プレイリストを作成するにはログインしてください');
+    return;
+  }
+  elements.playlistElements.nameInput.value = '';
+  // 少し遅延させることでブラウザの再描画処理のタイミングをずらす
+  setTimeout(() => {
+    showModal('createPlaylist');
+    elements.playlistElements.nameInput.focus();
+  }, 50);
+}
+
 
     function saveNewPlaylist() {
       const name = elements.playlistElements.nameInput.value.trim();
@@ -2858,68 +2880,37 @@ function switchAuthSection(section) {
     // Mock login/register/logout/sync remain the same as before, adding focus management
 
     function handleLogin() {
-  console.log("ログインボタンがクリックされました");
-  const email = elements.accountFields.loginEmail.value.trim();
-  const password = elements.accountFields.loginPassword.value.trim();
-  if (!email || !password) {
-    showSnackbar('メールアドレスとパスワードを入力してください');
-    return;
-  }
-      // --- Mock Login ---
-      console.log("Attempting login for:", email);
-      showSnackbar("ログイン中...");
+      // ... (validation) ...
+      console.log("Attempting mock login for:", email);
+      showLoadingState(elements.modalButtons.login, true);
       setTimeout(() => {
-          // In a real app, validate credentials via API call
-          const mockUser = {
-              id: `user_${Date.now()}`,
-              name: email.split('@')[0] || 'Demo User',
-              email: email,
-              token: `mock-token-${Date.now()}`
-          };
+          // ... (mock user creation) ...
           appState.loggedInUser = mockUser;
-          localStorage.setItem('reiKikuchiPlayerUser', JSON.stringify(mockUser));
-          updateAccountUI(true); // This will call render functions
-          showSnackbar('ログインしました');
+          saveToLocalStorage('reiKikuchiPlayerUser', mockUser);
+          updateAccountUI(true); // This already re-renders lists as needed
+          showSnackbar('ログインしました！');
           hideModal('account');
-          loadUserData(); // Reload all data after login
+          showLoadingState(elements.modalButtons.login, false);
+          // loadUserData(); // REMOVE THIS CALL?
       }, 1000);
+        return false; // Prevent default form submission
     }
 
-
     function handleRegister() {
-        const name = elements.accountFields.registerName.value.trim();
-        const email = elements.accountFields.registerEmail.value.trim();
-        const password = elements.accountFields.registerPassword.value.trim();
-        if (!name || !email || !password) {
-            showSnackbar('すべてのフィールドを入力してください');
-            return;
-        }
-        if (!/\S+@\S+\.\S+/.test(email)) {
-            showSnackbar('有効なメールアドレスを入力してください');
-            return;
-        }
-        if (password.length < 6) {
-            showSnackbar('パスワードは6文字以上で入力してください');
-            return;
-        }
-
-        // --- Mock Registration ---
-        console.log("Attempting registration for:", name, email);
-        showSnackbar("登録中...");
+       // ... (validation) ...
+        console.log("Attempting mock registration for:", name, email);
+        showLoadingState(elements.modalButtons.register, true);
         setTimeout(() => {
-            const mockUser = {
-                id: `user_${Date.now()}`,
-                name: name,
-                email: email,
-                token: `mock-token-${Date.now()}`
-            };
+           // ... (mock user creation) ...
             appState.loggedInUser = mockUser;
-            localStorage.setItem('reiKikuchiPlayerUser', JSON.stringify(mockUser));
-            updateAccountUI(true); // This will call render functions
+            saveToLocalStorage('reiKikuchiPlayerUser', mockUser);
+            updateAccountUI(true); // This already re-renders lists as needed
             showSnackbar('登録が完了しました。ようこそ！');
             hideModal('account');
-            loadUserData(); // Reload all data after registration
+            showLoadingState(elements.modalButtons.register, false);
+             // loadUserData(); // REMOVE THIS CALL?
         }, 1500);
+        return false; // Prevent default form submission
     }
 
     function handleLogout() {
@@ -3142,38 +3133,71 @@ function switchAuthSection(section) {
     // --- Modal Management ---
     let lastFocusedElement = null; // Store element focused before modal opens
 
-    function showModal(modalId) {
-  const modal = elements.modals[modalId];
-  if (modal && appState.activeModalId !== modalId) { // Prevent opening if already open
-    // Store the element that has focus before opening the modal
-    lastFocusedElement = document.activeElement;
+    function showModal(modalId, elementToFocusInitially = null) {
+      const modal = elements.modals[modalId];
+      // modalが存在しないか、既に表示されている場合は何もしない
+      if (!modal || modal.classList.contains('show')) {
+        // 既に表示されている場合は、念のためフォーカスを設定し直す試み（オプション）
+        if (modal && modal.classList.contains('show')) {
+           const targetElement = elementToFocusInitially || modal.querySelector('button, [href], input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])');
+           setTimeout(() => (targetElement || modal)?.focus(), 50); // Re-focus attempt
+        }
+        return;
+      }
 
-    // Remove Tailwind hidden class to allow display
-    modal.classList.remove('hidden');
-    
-    // Set inline style in case you rely on it
-    modal.style.display = 'flex';
-    appState.activeModalId = modalId;
-    document.body.style.overflow = 'hidden'; // Prevent background scrolling
 
-    // Focus trap: find all focusable elements within the modal
-    const focusableElements = modal.querySelectorAll('.focusable, button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    const firstFocusable = focusableElements[0];
-    const lastFocusable = focusableElements[focusableElements.length - 1];
+      console.log("Showing modal:", modalId);
+      lastFocusedElement = document.activeElement; // Store focus before modal opens
 
-    // Set initial focus (usually the first element or a specific one)
-    if (firstFocusable) {
-      setTimeout(() => firstFocusable.focus(), 50); // Delay helps ensure modal is fully visible
+      modal.style.display = 'flex'; // Make it visible for transition
+      // Force reflow before adding 'show' class to ensure transition works
+      void modal.offsetWidth;
+      modal.classList.add('show');
+      appState.activeModalId = modalId;
+      elements.body.style.overflow = 'hidden'; // Prevent background scroll
+
+      // Focus trap setup
+      // Find *visible* focusable elements
+      const focusableElements = Array.from(
+          modal.querySelectorAll('button, [href], input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])')
+      ).filter(el => el.offsetParent !== null && !el.disabled); // Filter for visible and enabled elements
+
+      const firstFocusable = focusableElements[0];
+      const lastFocusable = focusableElements[focusableElements.length - 1];
+
+      // Add keydown listener for focus trapping and Escape key
+      // Remove previous listener if any (safety check)
+      if (modal._keyDownListener) {
+          modal.removeEventListener('keydown', modal._keyDownListener);
+      }
+      modal._keyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId);
+      modal.addEventListener('keydown', modal._keyDownListener);
+
+      // Set initial focus after animation (usually first focusable or a specific element)
+      setTimeout(() => {
+          // Determine the target element for initial focus
+          let targetElement = elementToFocusInitially;
+
+          // If no specific element is provided, try finding one based on modalId convention
+          if (!targetElement) {
+              if (modalId === 'createPlaylist') targetElement = elements.playlistElements.nameInput;
+              else if (modalId === 'account' && !appState.loggedInUser) targetElement = elements.accountFields.loginEmail;
+              else if (modalId === 'account' && appState.loggedInUser) targetElement = elements.modalButtons.syncData;
+              else if (modalId === 'share') targetElement = elements.modalButtons.copyLink;
+              // Add more specific focus targets for other modals if needed
+          }
+
+          // Fallback to the first focusable element if no specific target found or provided
+          if (!targetElement) {
+              targetElement = firstFocusable;
+          }
+
+          // Finally, focus the target element or the modal itself as a last resort
+          (targetElement || modal)?.focus();
+          console.log("Attempted to focus:", targetElement || modal);
+
+      }, 150); // Delay should be slightly longer than CSS transition duration
     }
-
-    // Add keydown listener for focus trapping and Escape key
-    modal.currentKeyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId);
-    modal.addEventListener('keydown', modal.currentKeyDownListener);
-
-    console.log("Modal shown:", modalId);
-  }
-}
-
 
      function hideModal(modalId) {
          const modal = elements.modals[modalId];
@@ -3231,7 +3255,106 @@ function switchAuthSection(section) {
              }
          }
      }
+     function hideModal(modalId) {
+         const modal = elements.modals[modalId];
+         // modalが存在しないか、既に非表示の場合は何もしない
+         if (!modal || !modal.classList.contains('show')) return;
 
+         console.log("Hiding modal:", modalId);
+         modal.classList.remove('show'); // Start fade out transition
+         appState.activeModalId = null;
+
+         // Actions after transition completes
+         setTimeout(() => {
+             // Check if another modal hasn't been opened in the meantime
+             if (appState.activeModalId === null) { // Ensure no other modal is now active
+                modal.style.display = 'none'; // Actually hide it
+                // Remove the specific keydown listener for this modal
+                 if (modal._keyDownListener) {
+                     modal.removeEventListener('keydown', modal._keyDownListener);
+                     delete modal._keyDownListener; // Clean up property
+                     console.log("Removed keydown listener for modal:", modalId);
+                 }
+
+                 // Restore focus only if no other modals are open
+                 const anyModalOpen = Object.values(elements.modals).some(m => m?.classList.contains('show'));
+                 if (!anyModalOpen) {
+                     elements.body.style.overflow = ''; // Restore body scroll
+                     if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                         console.log("Restoring focus to:", lastFocusedElement);
+                         lastFocusedElement.focus();
+                     }
+                     lastFocusedElement = null;
+                 } else {
+                      console.log("Another modal is open, not restoring focus or body scroll yet.");
+                 }
+             } else {
+                  // If another modal was opened quickly, just ensure this one is hidden
+                  modal.style.display = 'none';
+                   if (modal._keyDownListener) { // Still clean up listener
+                       modal.removeEventListener('keydown', modal._keyDownListener);
+                       delete modal._keyDownListener;
+                   }
+             }
+
+             // Reset specific modal states if necessary
+             if (modalId === 'playlistDetail') {
+                 appState.currentSelectedPlaylistId = null;
+                 elements.playlistElements.detailContent.innerHTML = '<div class="list-empty-message"><p>プレイリストを選択してください</p></div>'; // Reset content
+             }
+              if (modalId === 'share') {
+                   elements.shareElements.linkInput.value = ''; // Clear share link
+              }
+              if (modalId === 'createPlaylist') {
+                  elements.playlistElements.nameInput.value = ''; // Clear name input on close
+              }
+
+         }, 300); // Match CSS transition duration (0.3s)
+     }
+
+
+    // handleModalKeyDown 関数は変更なしでOK
+     function handleModalKeyDown(e, firstFocusable, lastFocusable, modalId) {
+         if (e.key === 'Escape') {
+             hideModal(modalId);
+             return;
+         }
+
+         // Trap focus only if there are focusable elements
+         if (e.key === 'Tab' && firstFocusable) {
+             if (e.shiftKey) { // Shift + Tab
+                 // If focused on the first element, wrap to the last
+                 if (document.activeElement === firstFocusable) {
+                     lastFocusable?.focus();
+                     e.preventDefault();
+                 }
+             } else { // Tab
+                 // If focused on the last element, wrap to the first
+                 if (document.activeElement === lastFocusable) {
+                     firstFocusable?.focus();
+                     e.preventDefault();
+                 }
+             }
+              // Handle case with only one focusable element (prevent tabbing away)
+             if (firstFocusable === lastFocusable && document.activeElement === firstFocusable) {
+                  e.preventDefault();
+             }
+         }
+     }
+
+
+    // showCreatePlaylistModal 関数を修正 (setTimeout削除)
+    function showCreatePlaylistModal() {
+      if (!appState.loggedInUser) {
+        showAccountModal(); // Prompt login
+        showSnackbar('プレイリスト作成にはログインが必要です');
+        return; // Important: Stop execution if not logged in
+      }
+      elements.playlistElements.nameInput.value = ''; // Clear input
+
+      // showModalを呼び出し、フォーカスしたい要素を渡す
+      showModal('createPlaylist', elements.playlistElements.nameInput);
+    }
     // --- Snackbar ---
     function showSnackbar(message) {
         if (!elements.snackbar) return;
@@ -3926,6 +4049,17 @@ function switchAuthSection(section) {
         console.log('オフライン再生機能が初期化されました');
       }
     };
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM fully loaded and parsed.");
+        // Check if YouTube API might already be ready (rare case)
+        if (typeof YT !== 'undefined' && YT.Player) {
+            console.log("YT API was ready before DOMContentLoaded listener.");
+            // You might need to manually trigger the player setup if onYouTubeIframeAPIReady didn't fire
+            // This scenario is less likely if the script tag is at the end.
+        }
+        // Set initial viewport height
+        setCorrectViewportHeight();
+    });
 
     // ページ読み込み完了時に実行
     document.addEventListener('DOMContentLoaded', function() {
