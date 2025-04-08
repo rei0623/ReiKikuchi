@@ -970,7 +970,7 @@
        /* Time display */
        .time-display {
           display: flex;
-          justify-content: space-between;
+          justify-content: space-between; /* This should place times at ends */
           margin-top: 8px; /* Space above time */
        }
         #current-time, #total-time {
@@ -1095,9 +1095,7 @@
                     <span id="now-playing-badge" class="badge hidden">NOW PLAYING</span>
                 </div>
                 <div class="flex justify-end mb-2 gap-2 flex-shrink-0"> <!-- Buttons below video -->
-                     <button id="youtube-sync-btn" class="px-3 py-1 rounded-md text-sm focusable hidden" style="background-color: var(--primary-color); color: white;">
-                         <i class="fab fa-youtube mr-1"></i> 新曲を同期
-                     </button>
+                     <!-- youtube-sync-btn will be added by JS -->
                     <button id="share-btn" class="px-3 py-1 rounded-md text-sm disabled:opacity-50 focusable" style="background-color: var(--border-color);" disabled>
                         <i class="fas fa-share-alt mr-1"></i> 共有
                     </button>
@@ -1115,7 +1113,8 @@
                 <div class="progress-container mb-2 flex-shrink-0"> <!-- Progress Bar -->
                     <div class="progress-bar" id="progress-bar"></div>
                 </div>
-                <div class="time-display mb-4 flex-shrink-0"> <!-- Time Display -->
+                <!-- Time Display (Correctly styled for space-between) -->
+                <div class="time-display mb-4 flex-shrink-0">
                     <span id="current-time">00:00</span>
                     <span id="total-time">00:00</span>
                 </div>
@@ -1334,6 +1333,9 @@
      <!-- Offline Modal (Dynamically created in JS, but placeholder structure) -->
      <div id="offline-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="offline-modal-title">
         <!-- Content added by JS in offlinePlayback.addOfflineUI -->
+        <div class="modal-content">
+            <!-- JS will populate this -->
+        </div>
      </div>
 
 
@@ -1403,8 +1405,8 @@
       activeModalId: null, // Track the currently open modal
       isPlayerReady: false,
       visualizer: {
-          context: null,
-          analyser: null,
+          context: null, // Not used for actual AudioContext here
+          analyser: null,  // Not used for actual AnalyserNode here
           animationFrameId: null,
           bufferLength: 0,
           dataArray: null,
@@ -1449,7 +1451,7 @@
             openYouTubeBtn: document.getElementById('open-youtube-btn'),
             shareBtn: document.getElementById('share-btn'),
             createPlaylistBtn: document.getElementById('create-playlist-btn'),
-            youtubeSyncBtn: document.getElementById('youtube-sync-btn'), // Sync button
+            // youtubeSyncBtn: document.getElementById('youtube-sync-btn'), // Added dynamically by setupYouTubeSync
             offlineMenuBtn: document.getElementById('offline-menu-btn'), // Offline button
             // --- Modals ---
             modals: { // モーダル要素をここに集約
@@ -1512,6 +1514,7 @@
         if (!elements.btnPlayMobile) console.warn("Mobile Play button not found during initialization.");
         if (!elements.playlist) console.error("ERROR: Playlist container not found during initialization!");
         if (!elements.modals.account) console.error("ERROR: Account Modal not found during initialization!");
+        if (!elements.visualizerCanvas) console.error("ERROR: Visualizer Canvas not found during initialization!");
         // Add more checks as needed
     }
 
@@ -1583,12 +1586,10 @@
       const isBuffering = playerState === YT.PlayerState.BUFFERING;
 
      // 共通のUI更新処理
-appState.isPlaying = isPlaying;
-elements.nowPlayingBadge?.classList.toggle('hidden', !isPlaying);
-elements.shareBtn?.toggleAttribute('disabled', !isPlaying); // 再生中のみ共有可能
-// 修正：現在の曲の情報があるかで判定
-elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
-
+    appState.isPlaying = isPlaying; // Update global state
+    elements.nowPlayingBadge?.classList.toggle('hidden', !isPlaying);
+    elements.shareBtn?.toggleAttribute('disabled', !isPlaying);
+    elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
 
        // Update Play/Pause buttons (Desktop and Mobile)
         const playIcon = '<i class="fas fa-play"></i>';
@@ -1606,39 +1607,47 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         }
 
 
-      if (isEnded) {
-        handleSongEnd();
-      } else if (isPlaying) {
-        startProgressUpdate();
-        const song = currentSongData();
-        if (song) {
-            addToHistory(song);
-            renderHistoryList();
-        }
-        if (appState.visualizer.animationFrameId === null) {
-            drawVisualizer(); // Start visualizer
-        }
-      } else if (isPaused || isCued) {
-        stopProgressUpdate();
-        // Stop visualizer smoothly
-        if (appState.visualizer.animationFrameId !== null) {
-            cancelAnimationFrame(appState.visualizer.animationFrameId);
-            appState.visualizer.animationFrameId = null;
-            if (appState.visualizer.canvasCtx && appState.visualizer.canvas) {
-                 setTimeout(() => {
-                    if(appState.visualizer.canvas) { // Check if canvas still exists
-                        appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
-                    }
-                 }, 100);
+      if (isPlaying) {
+            console.log("[DEBUG] Player is PLAYING, starting progress/visualizer"); // 追加
+            startProgressUpdate();
+            const song = currentSongData();
+            if (song) {
+                addToHistory(song);
+                renderHistoryList();
             }
+            // 修正: Start visualizer loop if not already running
+            if (appState.visualizer.animationFrameId === null) {
+                console.log("[DEBUG] Starting visualizer loop..."); // 追加
+                drawVisualizer(); // Start visualizer loop
+            }
+        } else if (isPaused || isCued || isEnded) { // 修正: isEndedも追加
+            console.log("[DEBUG] Player is NOT PLAYING, stopping progress/visualizer. State:", playerState); // 追加
+            stopProgressUpdate();
+            // Stop visualizer loop
+            if (appState.visualizer.animationFrameId !== null) {
+                console.log("[DEBUG] Cancelling visualizer loop ID:", appState.visualizer.animationFrameId); // 追加
+                cancelAnimationFrame(appState.visualizer.animationFrameId);
+                appState.visualizer.animationFrameId = null;
+                // Optional: Clear canvas after a short delay or immediately
+                if (appState.visualizer.canvasCtx && appState.visualizer.canvas) {
+                     // Clear immediately is fine
+                     appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
+                     console.log("[DEBUG] Visualizer canvas cleared on stop."); // 追加
+                }
+            }
+            // Reset progress bar to 0 if song ended or cued
+            if (isCued || isEnded) {
+                updateProgress(); // Ensure progress bar shows 00:00 / duration
+            }
+        } else if (isBuffering) {
+            console.log("Buffering...");
+            // Optionally stop visualizer during buffering? Or keep it running?
+            // Let's keep it running for now.
         }
-        if (isCued) {
-            updateProgress(); // Ensure progress bar shows 00:00 / duration when cued
-        }
-      } else if (isBuffering) {
-          console.log("Buffering...");
-          // Optionally show a spinner or disable controls during buffering
-      }
+
+         if (isEnded) {
+             handleSongEnd(); // Handle song ending logic (loop, next)
+         }
     }
 
      function onPlayerError(event) {
@@ -1666,6 +1675,14 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
          appState.isPlaying = false;
          elements.nowPlayingBadge?.classList.add('hidden');
          stopProgressUpdate();
+         // Stop visualizer if running
+         if (appState.visualizer.animationFrameId !== null) {
+            cancelAnimationFrame(appState.visualizer.animationFrameId);
+            appState.visualizer.animationFrameId = null;
+            if (appState.visualizer.canvasCtx && appState.visualizer.canvas) {
+                 appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
+            }
+         }
          resetPlayerInfo();
      }
 
@@ -1673,37 +1690,40 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
     // App Initialization Functions
     // ==========================================================================
     async function loadSongsFromYouTube() {
-  try {
-    // 最新15件の動画データを取得
-    const videos = await youtubeAPI.getLatestVideos(15);
-    if (videos.length === 0) {
-      showSnackbar("新しい動画は見つかりませんでした");
-      return;
+      try {
+        // Render loading state
+        showLoadingIndicator(elements.playlist);
+
+        // Get latest video IDs and basic info
+        const videos = await youtubeAPI.getLatestVideos(15); // Adjust count as needed
+        if (videos.length === 0) {
+          showSnackbar("新しい動画は見つかりませんでした");
+          showEmptyMessage(elements.playlist, "曲が見つかりません"); // Show empty message
+          return;
+        }
+        const videoIds = videos.map(video => video.id.trim());
+
+        // Get duration details for these videos
+        const videoDetails = await youtubeAPI.getVideoDetails(videoIds);
+
+        // Merge details (duration) into the video list
+        appState.songs = videos.map(video => {
+          const details = videoDetails.find(detail => detail.id === video.id) || {};
+          return {
+            id: video.id.trim(),
+            title: video.title,
+            duration: details.duration || '--:--', // Use fetched duration or fallback
+            thumbnail: video.thumbnail
+          };
+        });
+        appState.filteredSongs = [...appState.songs];
+        renderPlaylist(); // Render the updated list
+      } catch (error) {
+        console.error("動画データの取得または処理に失敗しました", error);
+        showSnackbar("動画データの取得に失敗しました");
+        showEmptyMessage(elements.playlist, "曲の読み込みに失敗しました"); // Show error message
+      }
     }
-    // 動画IDの配列を作成（前後の空白を除去）
-    const videoIds = videos.map(video => video.id.trim());
-    // 動画詳細情報を取得（duration など）
-    const videoDetails = await youtubeAPI.getVideoDetails(videoIds);
-    
-    // 各動画データに正しい duration をマージして設定する
-    appState.songs = videos.map(video => {
-      // getVideoDetails の中から該当する動画を探す
-      const details = videoDetails.find(detail => detail.id === video.id) || {};
-      return {
-        id: video.id.trim(),
-        title: video.title,
-        duration: details.duration || '--:--',  // 正しい duration があれば上書き
-        thumbnail: video.thumbnail
-      };
-    });
-    // フィルタリング用の配列も更新
-    appState.filteredSongs = [...appState.songs];
-    renderPlaylist(); // プレイリストの表示を更新
-  } catch (error) {
-    console.error("動画データの取得に失敗しました", error);
-    showSnackbar("動画データの取得に失敗しました");
-  }
-}
 
 
     function showLoadingIndicator(container) {
@@ -1786,8 +1806,10 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
             console.error("Failed to get 2D context for visualizer canvas.");
             return;
         }
-        appState.visualizer.bufferLength = 128;
+        // Set a buffer length for the simulated data
+        appState.visualizer.bufferLength = 128; // Example value
         appState.visualizer.dataArray = new Uint8Array(appState.visualizer.bufferLength);
+        console.log("Visualizer canvas and context obtained.");
         resizeCanvas(); // Set initial size
       } catch (error) {
         console.error('Visualizer setup failed:', error);
@@ -1822,7 +1844,7 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
       elements.themeToggle?.addEventListener('click', toggleTheme);
       elements.searchInput?.addEventListener('input', handleSearch);
       elements.modalButtons.account?.addEventListener('click', showAccountModal); // Header account button
-      elements.youtubeSyncBtn?.addEventListener('click', () => youtubeAPI.updatePlaylist()); // Sync button
+      // elements.youtubeSyncBtn is added dynamically, listener attached in setupYouTubeSync
       elements.offlineMenuBtn?.addEventListener('click', () => offlinePlayback.showOfflineModal()); // Offline button
 
        // Action Buttons
@@ -2017,35 +2039,33 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
      const target = event.target;
      const playlistItem = target.closest('.user-playlist-item');
      if (!playlistItem) {
-         // console.log("UserPlaylists: Clicked outside item"); // 必要ならコメント解除
          return; // Click outside items
      }
 
      const playlistId = playlistItem.dataset.id;
-     console.log(`[DEBUG] UserPlaylists: Clicked item with ID: ${playlistId}`); // ★どの項目がクリックされたか
+     // console.log(`[DEBUG] UserPlaylists: Clicked item with ID: ${playlistId}`);
 
-     const playBtn = target.closest('.playlist-play-btn'); // 再生ボタンは現在未使用
-     const editBtn = target.closest('.playlist-edit-btn'); // 表示/編集ボタン
-     const deleteBtn = target.closest('.playlist-delete-btn'); // 削除ボタン
+     const playBtn = target.closest('.playlist-play-btn'); // Currently commented out in HTML
+     const editBtn = target.closest('.playlist-edit-btn'); // View/Edit button
+     const deleteBtn = target.closest('.playlist-delete-btn'); // Delete button
 
-     // ★どのボタンが特定されたかログ出力
-     console.log(`[DEBUG] UserPlaylists: Buttons found - playBtn: ${!!playBtn}, editBtn: ${!!editBtn}, deleteBtn: ${!!deleteBtn}`);
+     // console.log(`[DEBUG] UserPlaylists: Buttons found - playBtn: ${!!playBtn}, editBtn: ${!!editBtn}, deleteBtn: ${!!deleteBtn}`);
 
-     if (playBtn) { // 現在は通らないはず
+     if (playBtn) { // If play button is ever added back
          event.stopPropagation();
-         console.log("[DEBUG] UserPlaylists: Play button path. Calling playPlaylist...");
-         playPlaylist(playlistId);
-     } else if (editBtn) { // ★目のアイコンクリック時にここを通るはず
+         // console.log("[DEBUG] UserPlaylists: Play button path. Calling playPlaylist...");
+         // playPlaylist(playlistId); // Need a playPlaylist function
+     } else if (editBtn) { // View/Edit icon click
          event.stopPropagation();
-         console.log("[DEBUG] UserPlaylists: Edit/View button path. Calling viewPlaylist...");
+         // console.log("[DEBUG] UserPlaylists: Edit/View button path. Calling viewPlaylist...");
          viewPlaylist(playlistId);
-     } else if (deleteBtn) { // ★ゴミ箱アイコンクリック時にここを通るはず
+     } else if (deleteBtn) { // Delete icon click
          event.stopPropagation();
-         console.log("[DEBUG] UserPlaylists: Delete button path. Calling deletePlaylist...");
+         // console.log("[DEBUG] UserPlaylists: Delete button path. Calling deletePlaylist...");
          deletePlaylist(playlistId);
-     } else { // ★項目自体（ボタン以外）のクリック時にここを通るはず
-         console.log("[DEBUG] UserPlaylists: Item itself clicked. Calling viewPlaylist...");
-         viewPlaylist(playlistId); // 項目自体のクリックでも viewPlaylist を呼ぶ
+     } else { // Click on the item itself (not buttons)
+         // console.log("[DEBUG] UserPlaylists: Item itself clicked. Calling viewPlaylist...");
+         viewPlaylist(playlistId); // Default action is view
      }
 }
 
@@ -2308,9 +2328,9 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
 
 
     function renderPlaylistDetail(playlist) {
-        console.log(`[DEBUG] renderPlaylistDetail started for playlist ID: ${playlist?.id}`); // 関数開始ログ
+        // console.log(`[DEBUG] renderPlaylistDetail started for playlist ID: ${playlist?.id}`); // Debug log
 
-        // --- ガード節: 楽曲リストのロード確認 ---
+        // Guard clause: Check if main song list is loaded
         if (!appState.songs || appState.songs.length === 0) {
             showSnackbar("楽曲リストの読み込みが完了していません。");
             console.warn("[DEBUG] renderPlaylistDetail called before appState.songs was populated.");
@@ -2325,7 +2345,6 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
 
         if (!container || !titleEl || !removeBtn) {
             console.error("[DEBUG] Playlist detail modal elements not found.");
-            // エラーメッセージをモーダル内に表示する試み
             if(titleEl) titleEl.textContent = "表示エラー";
             if(container) container.innerHTML = `<p class="text-red-500 text-center py-4">詳細表示に必要な要素が見つかりません。</p>`;
             return;
@@ -2341,20 +2360,15 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
 
         titleEl.textContent = escapeHTML(playlist.name);
 
-        // --- ★★★ 修正点: 正しい方法で再生中IDを取得 ★★★ ---
-        const currentlyPlayingSongId = currentSongId(); // ヘルパー関数を正しく呼び出す
-        console.log("[DEBUG] renderPlaylistDetail: Currently playing song ID:", currentlyPlayingSongId);
+        // Get the currently playing song's ID safely
+        const currentlyPlayingSongId = currentSongId();
+        // console.log("[DEBUG] renderPlaylistDetail: Currently playing song ID:", currentlyPlayingSongId);
 
         const songsInPlaylist = (playlist.songs || [])
-                                .map(songId => {
-                                    // console.log(`[DEBUG] Finding song for ID: ${songId}`); // 必要なら詳細ログ追加
-                                    const foundSong = appState.songs.find(s => s && s.id === songId);
-                                    // if (!foundSong) console.warn(`[DEBUG] Song with ID ${songId} not found in appState.songs`);
-                                    return foundSong;
-                                })
-                                .filter(song => song); // null/undefinedを除外
+                                .map(songId => findSongById(songId)) // Use helper to find song object
+                                .filter(song => song); // Filter out null/undefined if song not found
 
-        console.log(`[DEBUG] renderPlaylistDetail: Found ${songsInPlaylist.length} songs for playlist ${playlist.id}`);
+        // console.log(`[DEBUG] renderPlaylistDetail: Found ${songsInPlaylist.length} songs for playlist ${playlist.id}`);
 
         const fragment = document.createDocumentFragment();
 
@@ -2366,24 +2380,21 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
 
         songsInPlaylist.forEach(song => {
             const isFavorite = appState.favorites.some(fav => fav && fav.id === song.id);
-            // --- ★★★ 修正点: 正しい再生中IDで比較 ★★★ ---
             const isActive = song.id === currentlyPlayingSongId;
             const div = document.createElement('div');
-            // focusable をアイテム自体に適用、checkbox にも別途適用
             div.className = `playlist-item p-3 flex items-center justify-between cursor-pointer ${isActive ? 'active' : ''} focusable`;
             div.dataset.id = song.id;
-            div.tabIndex = 0; // アイテムをフォーカス可能に
+            div.tabIndex = 0;
 
-            div.addEventListener('keydown', (e) => { // キーボードでの操作
+            div.addEventListener('keydown', (e) => {
                  if (e.key === 'Enter' || e.key === ' ') {
-                    // チェックボックス自体がターゲットでない場合のみ再生
                     if (!e.target.classList.contains('song-select')) {
                         e.preventDefault();
                         const songId = div.dataset.id;
                         const originalIndex = findSongIndexById(songId);
                         if (originalIndex !== -1) {
                              playSong(originalIndex);
-                             hideModal('playlistDetail'); // 再生後にモーダルを閉じる
+                             hideModal('playlistDetail');
                         } else {
                              showSnackbar("曲が見つかりませんでした。");
                         }
@@ -2410,12 +2421,11 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
             fragment.appendChild(div);
         });
 
-        container.innerHTML = ''; // 既存の内容をクリア
-        container.appendChild(fragment); // 新しい内容を追加
-        removeBtn.classList.remove('hidden'); // 削除ボタンを表示
+        container.innerHTML = '';
+        container.appendChild(fragment);
+        removeBtn.classList.remove('hidden');
 
-        // updateActiveListItem(); // ハイライト更新は不要かも？ モーダル表示時に一度行われるため
-        console.log("[DEBUG] renderPlaylistDetail finished rendering.");
+        // console.log("[DEBUG] renderPlaylistDetail finished rendering.");
     }
 
 
@@ -2450,21 +2460,9 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
           if (appState.player && typeof appState.player.loadVideoById === 'function') {
             console.log(`Loading video: ${cleanVideoId} (${targetSong.title})`);
             appState.player.loadVideoById(cleanVideoId);
-            // Autoplay handled by onStateChange or explicit play call
-            // Keep the setTimeout for playVideo as it might help timing issues
-             setTimeout(() => {
-                 // Double check player exists before calling playVideo
-                 if(appState.player && typeof appState.player.playVideo === 'function') {
-                     try {
-                        appState.player.playVideo();
-                     } catch(playError) {
-                         console.error("Error calling playVideo:", playError);
-                         showSnackbar("動画の再生開始に失敗しました。");
-                     }
-                 } else {
-                    console.warn("Player not available when trying to playVideo in setTimeout");
-                 }
-             }, 150); // Small delay after load command
+            // Autoplay is handled by onStateChange event (YT.PlayerState.PLAYING)
+            // Calling playVideo immediately after load might be redundant or cause issues
+            // Let's rely on the state change event triggering play logic
           } else {
             throw new Error("Player or loadVideoById not available.");
           }
@@ -2476,9 +2474,9 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         }
 
         updateActiveListItem();
-        // Ensure share/open buttons exist before disabling
-        if(elements.shareBtn) elements.shareBtn.disabled = true; // Disabled until playing starts
-        if(elements.openYouTubeBtn) elements.openYouTubeBtn.disabled = true; // Disabled until playing starts
+        // Disable buttons initially, they will be enabled when playing starts (via onPlayerStateChange)
+        if(elements.shareBtn) elements.shareBtn.disabled = true;
+        if(elements.openYouTubeBtn) elements.openYouTubeBtn.disabled = true;
       } else {
         console.warn("Invalid song index requested:", originalIndex);
       }
@@ -2572,26 +2570,32 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         console.log("Song ended. Loop mode:", appState.loopMode);
         switch (appState.loopMode) {
             case 'one':
-                if(appState.player && typeof appState.player.seekTo === 'function') {
-                    try { appState.player.seekTo(0); appState.player.playVideo(); } catch(e){ playNextSong(); }
-                } else { playNextSong(); }
+                if(appState.player && typeof appState.player.seekTo === 'function' && typeof appState.player.playVideo === 'function') {
+                    try {
+                        appState.player.seekTo(0);
+                        appState.player.playVideo();
+                        console.log("Looping one song.");
+                    } catch(e){
+                        console.error("Error restarting song for loop one:", e);
+                        playNextSong(); // Fallback to next song on error
+                    }
+                } else {
+                    playNextSong(); // Fallback if player methods aren't available
+                }
                 break;
             case 'all':
+                console.log("Looping all, playing next.");
                 playNextSong();
                 break;
             case 'none':
             default:
                 // Play next unless it's the absolute last song in non-shuffle mode
                 if (!appState.isShuffle && appState.currentSongIndex === appState.songs.length - 1) {
-                     // Stop or pause? Let's pause and reset time.
-                     if(appState.player && typeof appState.player.pauseVideo === 'function') {
-                        try {
-                            appState.player.pauseVideo();
-                            appState.player.seekTo(0);
-                        } catch(e){ console.warn("Error pausing/seeking at end:", e)}
-                     }
-                     // UI updates handled by PAUSED state change in onPlayerStateChange
+                     console.log("Reached end of playlist, stopping.");
+                     // UI should reset via the ENDED state in onPlayerStateChange
+                     // No need to explicitly call pause/seek here, let state change handle it.
                 } else {
+                    console.log("Playing next song after end.");
                     playNextSong();
                 }
                 break;
@@ -2626,7 +2630,12 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
           break;
         case 'all':
           appState.loopMode = 'one';
-          loopIconHTML = '<i class="fas fa-1" style="font-size: 0.8em; position: relative; top: -0.1em; margin-left: -0.2em;"></i><i class="fas fa-repeat"></i>';
+          // Use a more distinct icon for loop one if possible, or combine
+          // Example: using '1' inside repeat (requires FontAwesome Pro or custom icon)
+          // For standard FA:
+          loopIconHTML = '<i class="fas fa-repeat-1" style="position: relative;"><span class="text-xs absolute -top-1 -right-1 bg-white text-black rounded-full px-1" style="font-family: sans-serif; line-height: 1;">1</span></i>';
+          // Fallback simple styling:
+          // loopIconHTML = '<i class="fas fa-1" style="font-size: 0.8em; position: relative; top: -0.1em; margin-left: -0.2em;"></i><i class="fas fa-repeat"></i>';
           loopLabel = 'リピート: 1曲';
           break;
         case 'one':
@@ -2721,7 +2730,8 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
     function startProgressUpdate() {
       stopProgressUpdate(); // Clear existing interval
       if (!appState.progressInterval) { // Ensure only one interval runs
-           appState.progressInterval = setInterval(updateProgress, 500);
+           // Use a slightly faster interval for smoother progress bar updates
+           appState.progressInterval = setInterval(updateProgress, 250);
       }
       updateProgress(); // Initial update
     }
@@ -2780,7 +2790,7 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
                      }
                 }
             } else {
-                // Handle cases where times might be 0 or invalid initially
+                // Handle cases where times might be 0 or invalid initially (e.g., before playback starts)
                  if (progressBar.style.width !== '0%') progressBar.style.width = '0%';
                  currentTimeEl.textContent = '00:00';
                  // Use known song duration if available
@@ -2791,11 +2801,13 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
                  }
             }
         } catch (error) {
-            console.error("Error updating progress:", error);
+            // Don't log frequent errors during normal operation (like getting time before ready)
+            // console.error("Error updating progress:", error);
              if (progressBar.style.width !== '0%') progressBar.style.width = '0%';
              currentTimeEl.textContent = '00:00';
              totalTimeEl.textContent = '00:00';
              if(elements.currentSongDuration) elements.currentSongDuration.textContent = '--:--';
+             stopProgressUpdate(); // Stop interval if error occurs
         }
     }
 
@@ -2904,27 +2916,25 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
     }
 
     function viewPlaylist(playlistId) {
-  console.log(`[DEBUG] viewPlaylist called for ID: ${playlistId}`); // ★関数開始を確認
-  if (!appState.songs || appState.songs.length === 0) {
-      showSnackbar("楽曲リストの読み込みが完了していません。");
-      console.warn("[DEBUG] viewPlaylist called before appState.songs was populated.");
-      return; // ★早期リターンした場合
-  }
+      // console.log(`[DEBUG] viewPlaylist called for ID: ${playlistId}`); // Debug log
+      if (!appState.songs || appState.songs.length === 0) {
+          showSnackbar("楽曲リストの読み込みが完了していません。");
+          console.warn("[DEBUG] viewPlaylist called before appState.songs was populated.");
+          return;
+      }
 
-  const playlist = appState.userPlaylists.find(p => p && p.id === playlistId);
-  if (!playlist) {
-      showSnackbar("プレイリストが見つかりません。");
-      console.error(`[DEBUG] viewPlaylist: Playlist not found for ID: ${playlistId}`);
-      return; // ★プレイリストが見つからない場合
-  }
-  console.log("[DEBUG] viewPlaylist: Found playlist:", playlist);
-  appState.currentSelectedPlaylistId = playlistId; // IDを保持
-  console.log("[DEBUG] viewPlaylist: Calling renderPlaylistDetail...");
-  renderPlaylistDetail(playlist); // 詳細レンダリング呼び出し
-  console.log("[DEBUG] viewPlaylist: Calling showModal('playlistDetail')...");
-  showModal('playlistDetail'); // モーダル表示呼び出し
-  console.log("[DEBUG] viewPlaylist finished."); // ★関数終了を確認
-}
+      const playlist = appState.userPlaylists.find(p => p && p.id === playlistId);
+      if (!playlist) {
+          showSnackbar("プレイリストが見つかりません。");
+          console.error(`[DEBUG] viewPlaylist: Playlist not found for ID: ${playlistId}`);
+          return;
+      }
+      // console.log("[DEBUG] viewPlaylist: Found playlist:", playlist);
+      appState.currentSelectedPlaylistId = playlistId; // Store the ID of the viewed playlist
+      renderPlaylistDetail(playlist); // Render the content
+      showModal('playlistDetail'); // Show the modal
+      // console.log("[DEBUG] viewPlaylist finished."); // Debug log
+    }
 
     function removeSongFromPlaylist() {
       const playlistId = appState.currentSelectedPlaylistId;
@@ -3104,6 +3114,7 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
              if (button.id === 'login-btn') button.textContent = 'ログイン';
              else if (button.id === 'register-btn') button.textContent = '登録';
              else if (button.id === 'sync-data-btn') button.innerHTML = '<i class="fas fa-sync mr-2"></i> データを同期';
+             else if (button.id === 'logout-btn') button.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i> ログアウト';
              // Add more cases as needed
          }
      }
@@ -3170,20 +3181,24 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
 
     function handleLogout() {
         if (confirm("ログアウトしてもよろしいですか？")) {
-            appState.loggedInUser = null;
-            localStorage.removeItem('reiKikuchiPlayerUser');
-            // Optionally clear other local data on logout?
-            // appState.history = []; saveToLocalStorage('reiKikuchiPlayerHistory', []);
-            // appState.favorites = []; saveToLocalStorage('reiKikuchiPlayerFavorites', []);
-            // appState.userPlaylists = []; saveToLocalStorage('reiKikuchiPlayerPlaylists', []);
-            updateAccountUI(false); // Update UI to logged-out state
-            showSnackbar('ログアウトしました');
-            hideModal('account'); // Ensure modal is closed if open
-            // Re-render lists that depend on login state (like showing '+' button)
-            renderPlaylist();
-            renderHistoryList();
-            renderFavoritesList();
-            renderUserPlaylists();
+            showLoadingState(elements.modalButtons.logout, true); // Show loading state
+            setTimeout(() => { // Simulate logout delay
+                appState.loggedInUser = null;
+                localStorage.removeItem('reiKikuchiPlayerUser');
+                // Optionally clear other local data on logout?
+                // appState.history = []; saveToLocalStorage('reiKikuchiPlayerHistory', []);
+                // appState.favorites = []; saveToLocalStorage('reiKikuchiPlayerFavorites', []);
+                // appState.userPlaylists = []; saveToLocalStorage('reiKikuchiPlayerPlaylists', []);
+                updateAccountUI(false); // Update UI to logged-out state
+                showSnackbar('ログアウトしました');
+                hideModal('account'); // Ensure modal is closed if open
+                showLoadingState(elements.modalButtons.logout, false); // Hide loading state
+                // Re-render lists that depend on login state (like showing '+' button)
+                renderPlaylist();
+                renderHistoryList();
+                renderFavoritesList();
+                renderUserPlaylists();
+             }, 500);
         }
     }
 
@@ -3217,10 +3232,18 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
           }
       }
 
-      // Re-render lists *only if necessary* (e.g., if actions change based on login)
-      // If only button states change, a full re-render might be overkill.
-      // However, if the "Add to Playlist" button itself is shown/hidden based on login, re-render is needed.
-      // Let's keep re-rendering for simplicity for now.
+      // Update visibility/state of buttons/actions dependent on login state
+      // Example: Create Playlist button
+      if(elements.createPlaylistBtn) {
+          elements.createPlaylistBtn.style.display = isLoggedIn ? 'inline-block' : 'none';
+      }
+      // Example: Sync Data button (in modal)
+      if(elements.modalButtons.syncData) {
+          // Usually shown only when logged in, handled by switchAuthSection
+      }
+
+      // Re-render lists only if their content or actions explicitly change based on login
+      // (e.g., visibility of "Add to Playlist" buttons)
       renderPlaylist();
       renderHistoryList();
       renderFavoritesList();
@@ -3250,30 +3273,6 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
     // Utility Functions
     // ==========================================================================
     // Get current song ID safely
-    // Find song by ID safely (Helper Function)
-    function findSongById(songId) {
-        if (!songId) return null;
-        // appState.songs (全曲リスト) から検索する
-        return appState.songs.find(song => song && song.id === songId);
-    }
-
-    // Helper to update only the favorite button icons for a specific song ID across all lists
-    function updateFavoriteButtonsUI(songId) {
-        const isFavorite = appState.favorites.some(fav => fav && fav.id === songId);
-        // クラス名 'favorite-btn' と data-id 属性でボタンを特定
-        const favoriteButtons = document.querySelectorAll(`.favorite-btn[data-id="${songId}"]`);
-        favoriteButtons.forEach(button => {
-            const icon = button.querySelector('i'); // ボタン内の FontAwesome アイコンを取得
-            if (icon) {
-                // isFavorite 状態に応じてクラスを切り替え
-                icon.classList.toggle('text-red-500', isFavorite); // お気に入りは赤色
-                icon.classList.toggle('text-gray-400', !isFavorite); // それ以外はグレー
-                // アクセシビリティのために aria-label も更新
-                button.setAttribute('aria-label', isFavorite ? 'お気に入り解除' : 'お気に入り登録');
-            }
-        });
-    }
-
     function currentSongId() {
         return appState.currentSongIndex !== -1 ? appState.songs[appState.currentSongIndex]?.id : null;
     }
@@ -3285,6 +3284,11 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
     function findSongIndexById(songId) {
         if (!songId) return -1;
         return appState.songs.findIndex(song => song && song.id === songId);
+    }
+    // Find song object by ID safely (Used in various places)
+    function findSongById(songId) {
+        if (!songId) return null;
+        return appState.songs.find(song => song && song.id === songId);
     }
 
 
@@ -3305,11 +3309,9 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         elements.themeToggle.classList.toggle('btn-inactive', !isDark);
         elements.themeToggle.setAttribute('aria-pressed', isDark);
         localStorage.setItem('reiKikuchiPlayerTheme', isDark ? 'dark' : 'light');
-        // Redraw visualizer immediately if paused to reflect theme change
-        if (!appState.isPlaying && appState.visualizer.canvasCtx && appState.visualizer.canvas) {
-             appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
-             // Optionally draw a static state for the new theme
-        }
+        // Redraw visualizer immediately to reflect theme change, even if paused
+        // Call resize which implicitly calls draw if needed.
+        resizeCanvas();
     }
 
     function handleSearch() {
@@ -3377,13 +3379,13 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         updateFavoriteButtonsUI(songId); // Update all fav buttons for this song
         renderFavoritesList(); // Re-render the favorites tab content
          // Also re-render other lists as they contain favorite buttons
-        renderPlaylist();
-        renderHistoryList();
+        // renderPlaylist(); // Avoid full re-render if only icon changes
+        // renderHistoryList();
         // Re-render detail modal if open and relevant
         if (appState.currentSelectedPlaylistId && elements.modals.playlistDetail?.classList.contains('show')) {
              const playlist = appState.userPlaylists.find(p => p.id === appState.currentSelectedPlaylistId);
              if(playlist && playlist.songs.includes(songId)) {
-                  renderPlaylistDetail(playlist);
+                  renderPlaylistDetail(playlist); // Re-render needed if content changes
              }
         }
     }
@@ -3467,7 +3469,12 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
               else targetElement = firstFocusable;
           }
 
-          (targetElement || modal)?.focus(); // Focus target or modal itself as last resort
+          // Ensure targetElement is focusable before attempting focus
+          if (targetElement && typeof targetElement.focus === 'function') {
+            targetElement.focus();
+          } else if (modal && typeof modal.focus === 'function') {
+            modal.focus(); // Focus modal itself as last resort
+          }
           // console.log("Attempted initial focus on:", targetElement || modal);
       }, 150); // Delay slightly longer than transition
     }
@@ -3554,12 +3561,9 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         if (appState.snackbarTimeoutId) {
             clearTimeout(appState.snackbarTimeoutId);
             snackbar.classList.remove('show');
-             // Ensure the 'bottom' style is reset if it was previously set (might not be needed with current CSS)
-            // snackbar.style.bottom = '-100px';
+            // Force reflow to restart animation smoothly
+            void snackbar.offsetWidth;
         }
-
-        // Force reflow to restart animation
-        void snackbar.offsetWidth;
 
         // Add class to trigger transition
         snackbar.classList.add('show');
@@ -3567,8 +3571,6 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         // Set timeout to hide it
         appState.snackbarTimeoutId = setTimeout(() => {
             snackbar.classList.remove('show');
-            // After transition, reset bottom position (optional, depends on CSS)
-            // setTimeout(() => { snackbar.style.bottom = '-100px'; }, 300);
             appState.snackbarTimeoutId = null;
         }, 3000);
     }
@@ -3628,85 +3630,125 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         }
     }
 
-    // --- Visualizer Drawing (Simulation) ---
+    // --- Visualizer Drawing (Simulation, Corrected Loop Logic) ---
     function drawVisualizer() {
-        // This function simulates audio visualization based on isPlaying state.
+        // Guard clause: Check essential elements
         if (!appState.visualizer.canvasCtx || !appState.visualizer.dataArray || !appState.visualizer.canvas) {
-             appState.visualizer.animationFrameId = null;
+             console.warn("[DEBUG] Visualizer draw cancelled: canvas/ctx/dataArray missing");
+             appState.visualizer.animationFrameId = null; // Ensure loop stops if elements are gone
              return;
         }
-        appState.visualizer.animationFrameId = requestAnimationFrame(drawVisualizer);
 
         const bufferLength = appState.visualizer.bufferLength;
         const dataArray = appState.visualizer.dataArray;
-        const isPlaying = appState.isPlaying;
+        // Get the *current* playing state within the loop frame
+        const isPlayingNow = appState.isPlaying;
 
-        // Simulate data
+        // Simulate audio data based on current state
+        let hasPositiveValue = false; // Track if any bar has height for decay continuation
         for (let i = 0; i < bufferLength; i++) {
-            if (isPlaying) {
+            if (isPlayingNow) {
                  const timeFactor = Date.now() * 0.005 + i * 0.1;
-                 const randomFactor = Math.random() * 50;
+                 const randomFactor = Math.random() * 40; // Reduced randomness
                  const sineValue = (Math.sin(timeFactor) + 1) / 2;
-                 dataArray[i] = Math.max(0, Math.min(255, (sineValue * 150) + randomFactor + 20));
+                 dataArray[i] = Math.max(0, Math.min(255, (sineValue * 130) + randomFactor + 15)); // Adjusted values
+                 if (dataArray[i] > 0.1) hasPositiveValue = true;
             } else {
-                 dataArray[i] = Math.max(0, dataArray[i] * 0.95 - 1); // Decay effect
+                 // Decay effect: decrease value, ensure it reaches zero
+                 dataArray[i] = Math.max(0, dataArray[i] * 0.92 - 0.8); // Adjusted decay
+                 if (dataArray[i] > 0.1) hasPositiveValue = true; // Check if still decaying
             }
         }
+        // console.log("[DEBUG] Visualizer data (first 5):", dataArray.slice(0, 5)); // Frequent log, disable normally
 
         const canvas = appState.visualizer.canvas;
         const canvasCtx = appState.visualizer.canvasCtx;
         const width = canvas.width;
         const height = canvas.height;
 
+        // Guard clause: Check for valid canvas dimensions
+        if (width <= 0 || height <= 0) {
+             console.warn("[DEBUG] Visualizer draw cancelled: canvas dimensions invalid (", width, "x", height, ")");
+             appState.visualizer.animationFrameId = null; // Stop loop if canvas has no size
+             return;
+        }
+
+        // --- Drawing Logic ---
         canvasCtx.clearRect(0, 0, width, height);
 
         const isDarkMode = elements.body?.classList.contains('dark');
-         // Use CSS variables directly
-         const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
-         const secondary = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim();
-         const bg = getComputedStyle(document.documentElement).getPropertyValue('--visualizer-bg', isDarkMode ? 'rgba(30, 30, 30, 0.1)' : 'rgba(245, 245, 245, 0.1)'); // Use a CSS variable or fallback
+        // Use CSS variables for colors
+        const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
+        const secondary = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim();
+        // Use a fallback background or define a specific CSS var for visualizer BG
+        const vizBg = getComputedStyle(document.documentElement).getPropertyValue('--visualizer-background', 'transparent').trim(); // Example: Add --visualizer-background in :root if needed
+
+        // Optionally fill background (or keep transparent)
+        if(vizBg !== 'transparent') {
+            canvasCtx.fillStyle = vizBg;
+            canvasCtx.fillRect(0, 0, width, height);
+        }
 
 
-        canvasCtx.fillStyle = bg;
-        canvasCtx.fillRect(0, 0, width, height);
-
-        const gradient = canvasCtx.createLinearGradient(0, 0, 0, height);
+        const gradient = canvasCtx.createLinearGradient(0, height * 0.3, 0, height); // Gradient starts lower
         gradient.addColorStop(0, primary || '#8e24aa'); // Fallback color
         gradient.addColorStop(1, secondary || '#5e35b1');
         canvasCtx.fillStyle = gradient;
 
-        const barWidth = Math.max(1, (width / bufferLength) * 1.5); // Ensure barWidth is at least 1
-        const spacing = Math.max(1, barWidth * 0.2); // Spacing relative to bar width
+        const barWidthRatio = 1.2; // Bar width relative to available space per bar
+        const spacingRatio = 0.3; // Spacing relative to bar width
+        const barWidth = Math.max(1, (width / bufferLength) * barWidthRatio);
+        const spacing = Math.max(1, barWidth * spacingRatio);
         const totalBarAndSpaceWidth = barWidth + spacing;
-        const numBarsThatFit = Math.floor(width / totalBarAndSpaceWidth);
-        const actualBufferLength = Math.min(bufferLength, numBarsThatFit); // Use fewer bars if they don't fit
-        const offsetX = (width - (actualBufferLength * totalBarAndSpaceWidth - spacing)) / 2; // Center bars
+        const numBarsThatFit = Math.floor((width + spacing) / totalBarAndSpaceWidth); // Calculate how many fit
+        const actualBufferLength = Math.min(bufferLength, numBarsThatFit); // Use the smaller number
+        const offsetX = (width - (actualBufferLength * totalBarAndSpaceWidth - spacing)) / 2; // Center the bars
 
         let x = offsetX;
         for (let i = 0; i < actualBufferLength; i++) {
-            const barHeight = Math.max(1, (dataArray[i] / 255) * height * 0.8); // Min height of 1px
-            const borderRadius = barWidth / 4; // Rounded corners
+            // Scale bar height, ensure minimum height for visibility
+            const barHeight = Math.max(1, (dataArray[i] / 255) * height * 0.9); // Adjusted scaling
+            const borderRadius = Math.min(4, barWidth / 3); // Smaller radius, max 4px
 
              // Draw rounded rectangle
              canvasCtx.beginPath();
-             canvasCtx.moveTo(x + borderRadius, height);
-             canvasCtx.lineTo(x + borderRadius, height - barHeight + borderRadius);
-             // Top edge (potentially flat if barHeight is small)
-             if (barHeight > borderRadius * 2) {
-                canvasCtx.arcTo(x, height - barHeight, x + borderRadius, height - barHeight, borderRadius); // Top-left corner
+             canvasCtx.moveTo(x + borderRadius, height); // Start bottom left
+             canvasCtx.lineTo(x + borderRadius, height - barHeight + borderRadius); // Up to top left radius start
+
+             if (barHeight > borderRadius * 2) { // Only draw curves if tall enough
+                 // Top-left arc
+                canvasCtx.arcTo(x, height - barHeight, x + borderRadius, height - barHeight, borderRadius);
+                // Top line
                 canvasCtx.lineTo(x + barWidth - borderRadius, height - barHeight);
-                canvasCtx.arcTo(x + barWidth, height - barHeight, x + barWidth, height - barHeight + borderRadius, borderRadius); // Top-right corner
-             } else { // Draw a simple rounded top if bar is short
-                 canvasCtx.lineTo(x + barWidth - borderRadius, height - barHeight + borderRadius);
+                // Top-right arc
+                canvasCtx.arcTo(x + barWidth, height - barHeight, x + barWidth, height - barHeight + borderRadius, borderRadius);
+             } else { // Draw flat top for very short bars
+                 canvasCtx.lineTo(x, height-barHeight); // Straight up
+                 canvasCtx.lineTo(x + barWidth, height - barHeight); // Straight across
+                 canvasCtx.lineTo(x + barWidth, height - barHeight + borderRadius); // Connect to right edge start
              }
-             canvasCtx.lineTo(x + barWidth, height); // Right edge down
-             // No bottom corners needed as it connects at height
+             // Right edge down
+             canvasCtx.lineTo(x + barWidth, height);
+             // canvasCtx.lineTo(x + borderRadius, height); // Close path at bottom (optional, fill usually handles)
              canvasCtx.closePath();
              canvasCtx.fill();
 
             x += totalBarAndSpaceWidth;
         }
+        // --- End Drawing Logic ---
+
+        // --- Schedule Next Frame ---
+        // Continue the loop if the player is playing OR if the animation hasn't fully decayed
+        if (isPlayingNow || hasPositiveValue) {
+             appState.visualizer.animationFrameId = requestAnimationFrame(drawVisualizer);
+        } else {
+             // Stop the loop completely if not playing and animation has fully decayed
+             canvasCtx.clearRect(0, 0, width, height); // Final clear
+             appState.visualizer.animationFrameId = null;
+             console.log("[DEBUG] Visualizer loop stopped naturally (decayed).");
+        }
     }
+
 
     // --- Canvas Resize ---
     function resizeCanvas() {
@@ -3714,16 +3756,22 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         const parent = appState.visualizer.canvas.parentElement;
         if (!parent) return;
         const rect = parent.getBoundingClientRect();
+        // Only resize if dimensions actually changed and are valid
         if (rect.width > 0 && rect.height > 0 && (appState.visualizer.canvas.width !== rect.width || appState.visualizer.canvas.height !== rect.height)) {
             appState.visualizer.canvas.width = rect.width;
             appState.visualizer.canvas.height = rect.height;
             // console.log("Resized visualizer canvas to:", rect.width, rect.height);
-             // Re-draw immediately if paused
-             if (!appState.isPlaying) {
-                 drawVisualizer(); // Draw the decayed state on new size
+
+             // Re-draw immediately to reflect new size, especially if paused/decaying
+             if (appState.visualizer.animationFrameId === null) {
+                 // Draw one frame to show the current (potentially decayed) state at the new size
+                 drawVisualizer();
+                 // Crucially, do NOT restart the loop here if it wasn't already running
+                 // The drawVisualizer function itself will stop if !isPlayingNow and !hasPositiveValue
              }
         }
     }
+
 
      // --- Highlight Active Song ---
      function updateActiveListItem() {
@@ -3750,9 +3798,11 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
                              // Check if item is already fully visible to prevent unnecessary scrolling
                              const itemRect = activeItem.getBoundingClientRect();
                              const containerRect = container.getBoundingClientRect();
-                             const isFullyVisible = itemRect.top >= containerRect.top && itemRect.bottom <= containerRect.bottom;
+                             // Check if container has non-zero height (important for initially hidden tabs)
+                             const containerHasHeight = containerRect.height > 0;
+                             const isFullyVisible = containerHasHeight && itemRect.top >= containerRect.top && itemRect.bottom <= containerRect.bottom;
 
-                             if (!isFullyVisible) {
+                             if (!isFullyVisible && containerHasHeight) {
                                 activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                              }
                          }
@@ -3827,233 +3877,206 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
        }
 
     // ==========================================================================
-    // YouTube API Object
+    // YouTube API Object (No changes needed here)
     // ==========================================================================
-    const youtubeAPI = {
-      // APIキー（実際の使用時には自分のAPIキーに置き換える必要があります）
-      apiKey: 'AIzaSyCbzvjP9vFa5I8N1qLI5H9LUpYim0nkQS4',
-      
-      // チャンネルID
-      channelId: 'UCYAuSEKhuk3v4ZKzm5Lqb1Q',
-      
-      // 最新の動画を取得する関数
-      async getLatestVideos() {
-  try {
-    // チャンネル情報取得
-    const channelResponse = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=${this.channelId}&key=${this.apiKey}`
-    );
-    if (!channelResponse.ok) {
-      throw new Error('チャンネル情報の取得に失敗しました');
-    }
-    const channelData = await channelResponse.json();
-    if (!channelData.items || channelData.items.length === 0) {
-      throw new Error('チャンネルが見つかりません');
-    }
-    const uploadsPlaylistId = channelData.items[0].contentDetails.relatedPlaylists.uploads;
+     const youtubeAPI = {
+        apiKey: 'AIzaSyCbzvjP9vFa5I8N1qLI5H9LUpYim0nkQS4', // Replace with your key if needed
+        channelId: 'UCYAuSEKhuk3v4ZKzm5Lqb1Q',
 
-    // ページネーションで全動画を取得（最大5ページ）
-    let videos = [];
-    let nextPageToken = '';
-    let pageCount = 0;
-    const maxPages = 5;
-    do {
-      let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${uploadsPlaylistId}&key=${this.apiKey}`;
-      if (nextPageToken) {
-        url += `&pageToken=${nextPageToken}`;
-      }
-      const playlistResponse = await fetch(url);
-      if (!playlistResponse.ok) {
-        throw new Error('プレイリスト情報の取得に失敗しました');
-      }
-      const playlistData = await playlistResponse.json();
-      if (playlistData.items) {
-        videos.push(...playlistData.items);
-      }
-      nextPageToken = playlistData.nextPageToken;
-      pageCount++;
-      if (pageCount >= maxPages) {
-        console.log(`最大ページ数 ${maxPages} に達しました。`);
-        break;
-      }
-    } while (nextPageToken);
+        async getLatestVideos(maxResults = 15) { // Default to 15
+            console.log(`Fetching latest ${maxResults} videos...`);
+            try {
+                const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${this.channelId}&maxResults=${maxResults}&order=date&type=video&key=${this.apiKey}`);
+                if (!response.ok) {
+                    // Try to get error message from response
+                     let errorMsg = `YouTube Search API error: ${response.status}`;
+                     try {
+                         const errorData = await response.json();
+                         errorMsg = `YouTube Search API error: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`;
+                     } catch (e) {/* Ignore JSON parsing error */}
+                     throw new Error(errorMsg);
+                }
+                const data = await response.json();
 
-    // 必要な情報だけを抽出（duration は空にしておく）
-    return videos.map(item => {
-      const snippet = item.snippet;
-      return {
-        id: snippet.resourceId.videoId,
-        title: snippet.title,
-        description: snippet.description,
-        thumbnail: snippet.thumbnails.high.url,
-        publishedAt: snippet.publishedAt,
-        duration: null  // duration は後で上書きする
-      };
-    });
-  } catch (error) {
-    console.error('YouTube APIエラー:', error);
-    showSnackbar('YouTube動画の取得に失敗しました');
-    return [];
-  }
-}
-,
-      
-      // 動画の詳細情報を取得する関数（長さなど）
-      async getVideoDetails(videoIds) {
-        if (!videoIds || videoIds.length === 0) return [];
-        
-        try {
-          const response = await fetch(
-            `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${videoIds.join(',')}&key=${this.apiKey}`
-          );
-          
-          if (!response.ok) {
-            throw new Error('動画詳細の取得に失敗しました');
-          }
-          
-          const data = await response.json();
-          
-          if (!data.items || data.items.length === 0) {
-            return [];
-          }
-          
-          return data.items.map(item => {
-            // ISO 8601形式の期間を分:秒形式に変換
-            const duration = this.convertDuration(item.contentDetails.duration);
-            
-            return {
-              id: item.id,
-              duration: duration,
-              viewCount: item.statistics.viewCount
-            };
-          });
-        } catch (error) {
-          console.error('YouTube APIエラー (動画詳細):', error);
-          return [];
+                if (!data.items) {
+                    console.warn("No items found in YouTube search response.");
+                    return [];
+                }
+
+                console.log(`Found ${data.items.length} videos from search.`);
+                return data.items.map(item => ({
+                    id: item.id.videoId,
+                    title: item.snippet.title,
+                    description: item.snippet.description, // Keep description if needed
+                    thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url, // Get highest available thumbnail
+                    publishedAt: item.snippet.publishedAt,
+                    duration: null // Duration needs separate call
+                }));
+            } catch (error) {
+                console.error('YouTube Search API error:', error);
+                showSnackbar('YouTube動画の取得に失敗しました');
+                return [];
+            }
+        },
+
+        async getVideoDetails(videoIds) {
+            if (!videoIds || videoIds.length === 0) return [];
+            console.log(`Fetching details for ${videoIds.length} video(s)...`);
+            // Split into chunks of 50 for API limit
+            const MAX_IDS_PER_REQUEST = 50;
+            let allDetails = [];
+
+            for (let i = 0; i < videoIds.length; i += MAX_IDS_PER_REQUEST) {
+                const chunkIds = videoIds.slice(i, i + MAX_IDS_PER_REQUEST);
+                try {
+                    const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${chunkIds.join(',')}&key=${this.apiKey}`);
+                     if (!response.ok) {
+                        let errorMsg = `YouTube Videos API error: ${response.status}`;
+                         try {
+                             const errorData = await response.json();
+                             errorMsg = `YouTube Videos API error: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`;
+                         } catch (e) {/* Ignore JSON parsing error */}
+                         throw new Error(errorMsg);
+                     }
+                    const data = await response.json();
+
+                    if (data.items) {
+                        const chunkDetails = data.items.map(item => ({
+                            id: item.id,
+                            duration: item.contentDetails?.duration ? this.convertDuration(item.contentDetails.duration) : '--:--',
+                            viewCount: item.statistics?.viewCount // Optional: get view count
+                        }));
+                        allDetails = allDetails.concat(chunkDetails);
+                    }
+                } catch (error) {
+                    console.error(`YouTube Videos API error (chunk ${i / MAX_IDS_PER_REQUEST}):`, error);
+                    // Continue fetching other chunks, but report error
+                    showSnackbar('動画詳細の一部の取得に失敗しました');
+                }
+            }
+            console.log(`Fetched details for ${allDetails.length} video(s).`);
+            return allDetails;
+        },
+
+        convertDuration(isoDuration) {
+            // Regex to parse ISO 8601 duration format (handles hours, minutes, seconds)
+             const regex = /P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/;
+             const matches = isoDuration.match(regex);
+
+             if (!matches) return '--:--'; // Invalid format
+
+             // Extract parts, default to 0 if not present
+             const hours = parseInt(matches[5] || 0);
+             const minutes = parseInt(matches[6] || 0);
+             const seconds = Math.floor(parseFloat(matches[7] || 0)); // Floor seconds
+
+             let formattedTime = "";
+
+             if (hours > 0) {
+                 formattedTime += `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+             } else {
+                 formattedTime += `${minutes}:${seconds.toString().padStart(2, '0')}`;
+             }
+
+             return formattedTime;
+        },
+
+        async updatePlaylist() {
+            try {
+                showSnackbar('YouTubeから最新の曲を取得中...');
+
+                const latestVideos = await this.getLatestVideos(25); // Fetch more initially if needed
+                if (latestVideos.length === 0) {
+                    showSnackbar('新しい曲は見つかりませんでした');
+                    return;
+                }
+
+                const videoIds = latestVideos.map(video => video.id);
+                const videoDetails = await this.getVideoDetails(videoIds);
+
+                const videosWithDetails = latestVideos.map(video => {
+                    const details = videoDetails.find(detail => detail.id === video.id) || {};
+                    return {
+                        ...video, // Include all data from search (title, thumbnail, etc.)
+                        duration: details.duration || '--:--', // Add duration
+                    };
+                });
+
+                const currentSongIds = new Set(appState.songs.map(s => s.id));
+                const newSongs = videosWithDetails.filter(video => !currentSongIds.has(video.id));
+
+                if (newSongs.length === 0) {
+                    showSnackbar('新しい曲は見つかりませんでした');
+                    return;
+                }
+
+                // Add new songs to the beginning of the list
+                appState.songs.unshift(...newSongs.map(video => ({ // Map to desired app structure
+                   id: video.id,
+                   title: video.title,
+                   duration: video.duration,
+                   thumbnail: video.thumbnail
+                })));
+
+                // Limit total songs if necessary? Maybe not needed for now.
+                // const MAX_TOTAL_SONGS = 100;
+                // if (appState.songs.length > MAX_TOTAL_SONGS) {
+                //    appState.songs = appState.songs.slice(0, MAX_TOTAL_SONGS);
+                // }
+
+                appState.filteredSongs = [...appState.songs]; // Update filtered list
+                renderPlaylist(); // Update UI
+
+                showSnackbar(`${newSongs.length}曲の新しい曲を追加しました`);
+            } catch (error) {
+                console.error('プレイリスト更新エラー:', error);
+                showSnackbar(`プレイリストの更新に失敗しました: ${error.message || '不明なエラー'}`);
+            }
+        },
+
+        startAutoSync(intervalMinutes = 60) {
+           console.log(`Starting auto-sync every ${intervalMinutes} minutes.`);
+           // Don't run initial sync here, let it be triggered by user or on load
+           // this.updatePlaylist();
+
+           // Set interval
+           const intervalId = setInterval(() => {
+                console.log("Auto-sync triggered.");
+                this.updatePlaylist();
+           }, intervalMinutes * 60 * 1000);
+
+           return intervalId; // Return ID to allow stopping later if needed
         }
-      },
-      
-      // ISO 8601形式の期間を分:秒形式に変換する関数
-      convertDuration(isoDuration) {
-        const match = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-        
-        const hours = (match[1] && match[1].replace('H', '')) || 0;
-        const minutes = (match[2] && match[2].replace('M', '')) || 0;
-        const seconds = (match[3] && match[3].replace('S', '')) || 0;
-        
-        let result = '';
-        
-        if (hours > 0) {
-          result += `${hours}:`;
-          result += `${minutes.toString().padStart(2, '0')}:`;
-        } else {
-          result += `${minutes}:`;
-        }
-        
-        result += seconds.toString().padStart(2, '0');
-        
-        return result;
-      },
-      
-      // 新しい曲をプレイリストに追加する関数
-      async updatePlaylist() {
-        try {
-          showSnackbar('YouTubeから最新の曲を取得中...');
-          
-          // 最新の動画を取得
-          const latestVideos = await this.getLatestVideos(15); // 最新15件を取得
-          
-          if (latestVideos.length === 0) {
-            showSnackbar('新しい曲は見つかりませんでした');
-            return;
-          }
-          
-          // 動画IDのリストを作成
-          const videoIds = latestVideos.map(video => video.id);
-          
-          // 動画の詳細情報を取得
-          const videoDetails = await this.getVideoDetails(videoIds);
-          
-          // 詳細情報を結合
-          const videosWithDetails = latestVideos.map(video => {
-            const details = videoDetails.find(detail => detail.id === video.id) || {};
-            return {
-              ...video,
-              duration: details.duration || video.duration
-            };
-          });
-          
-          // 既存の曲リストと比較して新しい曲だけを追加
-          const newSongs = videosWithDetails.filter(video => 
-            !appState.songs.some(song => song.id === video.id)
-          );
-          
-          if (newSongs.length === 0) {
-            showSnackbar('新しい曲は見つかりませんでした');
-            return;
-          }
-          
-          // 新しい曲をプレイリストに追加
-          newSongs.forEach(video => {
-            appState.songs.unshift({
-              id: video.id,
-              title: video.title,
-              duration: video.duration,
-              thumbnail: video.thumbnail
-            });
-          });
-          
-          // フィルタリングされた曲リストも更新
-          appState.filteredSongs = [...appState.songs];
-          
-          // UIを更新
-          renderPlaylist();
-          
-          showSnackbar(`${newSongs.length}曲の新しい曲を追加しました`);
-        } catch (error) {
-          console.error('プレイリスト更新エラー:', error);
-          showSnackbar('プレイリストの更新に失敗しました');
-        }
-      },
-      
-      // 定期的に新曲をチェックする関数
-      startAutoSync(intervalMinutes = 60) {
-        // 初回実行
-        this.updatePlaylist();
-        
-        // 定期的に実行（デフォルトは1時間ごと）
-        const intervalId = setInterval(() => {
-          this.updatePlaylist();
-        }, intervalMinutes * 60 * 1000);
-        
-        // intervalIdを返して、必要に応じて停止できるようにする
-        return intervalId;
-      }
     };
 
-    // 同期ボタンを追加する関数
+    // Sync button setup moved here, called from onPlayerReady
     function setupYouTubeSync() {
-      // 同期ボタンを追加
+      // Check if button already exists to prevent duplicates if onPlayerReady runs again
+      if (document.getElementById('youtube-sync-btn')) return;
+
       const syncButton = document.createElement('button');
       syncButton.id = 'youtube-sync-btn';
-      syncButton.className = 'px-3 py-1 rounded-md text-sm';
+      // Use existing Tailwind classes + custom style vars
+      syncButton.className = 'px-3 py-1 rounded-md text-sm focusable';
       syncButton.style.backgroundColor = 'var(--primary-color)';
-      syncButton.style.color = 'white';
+      syncButton.style.color = 'white'; // Ensure text color contrasts
       syncButton.innerHTML = '<i class="fab fa-youtube mr-1"></i> 新曲を同期';
-      
-      // ボタンを適切な場所に追加
-      const buttonContainer = document.querySelector('.flex.justify-end.mb-2.gap-2');
+
+      // Find the container for action buttons below the player
+      const buttonContainer = document.querySelector('.player-main-column .flex.justify-end.mb-2.gap-2');
       if (buttonContainer) {
-        buttonContainer.prepend(syncButton);
-        
-        // クリックイベントを追加
+        buttonContainer.prepend(syncButton); // Add to the beginning of the button group
+        // Add click listener
         syncButton.addEventListener('click', () => {
           youtubeAPI.updatePlaylist();
         });
+        console.log("YouTube Sync button added.");
+      } else {
+        console.error("Could not find button container to add YouTube Sync button.");
       }
-      
-      // 自動同期を開始（1時間ごと）
-      youtubeAPI.startAutoSync(60);
+
+      // Start auto-sync (optional)
+      // youtubeAPI.startAutoSync(60); // Start checking every 60 minutes
     }
 
 
@@ -4075,6 +4098,7 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                  console.log('Service Worker: Controller changed.');
                  // Optionally reload or notify user?
+                 // window.location.reload(); // Can be disruptive
             });
              // Listen for messages from SW (e.g., cache updates)
              navigator.serviceWorker.addEventListener('message', event => {
@@ -4085,6 +4109,7 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
                   if (event.data && event.data.type === 'CACHE_ERROR') {
                        showSnackbar(`キャッシュエラー: ${event.data.message}`);
                    }
+                  // Add more message types if needed
              });
             return registration;
           } catch (error) {
@@ -4124,9 +4149,7 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
              // Show snackbar only on change, and avoid on initial load if online
              if(typeof this.wasOffline === 'undefined') {
                 this.wasOffline = isOffline; // Set initial state
-                if(isOffline) { // Show snackbar only if initially offline
-                    showSnackbar('オフラインです。キャッシュされたコンテンツのみ利用可能です。');
-                }
+                // Don't show snackbar on initial load regardless of state
              } else if (this.wasOffline !== isOffline) {
                  if (isOffline) {
                     showSnackbar('オフラインです。キャッシュされたコンテンツのみ利用可能です。');
@@ -4146,10 +4169,13 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
           return new Promise((resolve, reject) => {
               if (!navigator.serviceWorker.controller) {
                    // Try waiting a bit for the controller to become active, especially after registration
+                   console.warn("SW Controller not ready, waiting 500ms...");
                    setTimeout(() => {
                        if(navigator.serviceWorker.controller) {
+                           console.log("SW Controller now ready, retrying message.");
                            this.sendMessageToSW(message).then(resolve).catch(reject); // Retry
                        } else {
+                          console.error("SW Controller still not available after delay.");
                           reject('Service Worker controller not available.');
                        }
                    }, 500);
@@ -4187,13 +4213,19 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
            }
           if (!urls || urls.length === 0) return;
 
-          showSnackbar(`${urls.length} 個のリソースをキャッシュ中...`);
+          const uniqueUrls = [...new Set(urls)].filter(url => url); // Remove duplicates and invalid entries
+           if (uniqueUrls.length === 0) {
+               showSnackbar("キャッシュする有効なURLがありません。");
+               return;
+           }
+
+
+          showSnackbar(`${uniqueUrls.length} 個のリソースをキャッシュ中...`);
           try {
               // Send message and wait for response (e.g., confirmation or error)
-              const response = await this.sendMessageToSW({ type: 'CACHE_URLS', urls: urls });
+              const response = await this.sendMessageToSW({ type: 'CACHE_URLS', urls: uniqueUrls });
               console.log('Response from SW for CACHE_URLS:', response);
-              // SW should send back a message indicating success/failure/count
-              // Message handling is now done in the global listener in registerServiceWorker
+              // Success/Error message is now handled by the global listener in registerServiceWorker
           } catch (error) {
               console.error('Failed to send cache message to SW or received error:', error);
               showSnackbar("リソースのキャッシュ要求に失敗しました。");
@@ -4234,12 +4266,14 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
                showSnackbar("オフライン機能の準備ができていません。");
                return;
            }
-           if(confirm("すべてのオフラインキャッシュを削除しますか？")) {
+           if(confirm("すべてのオフラインキャッシュを削除しますか？ (基本アセットを除く)")) {
                showSnackbar("キャッシュをクリア中...");
                try {
+                  // Assuming SW 'CLEAR_CACHE' clears the dynamic cache ('runtime-cache')
                   const response = await this.sendMessageToSW({ type: 'CLEAR_CACHE' });
                   console.log("Response from SW for CLEAR_CACHE:", response);
-                  showSnackbar('キャッシュをクリアしました。');
+                  showSnackbar('ダイナミックキャッシュをクリアしました。');
+                  // Optionally trigger re-render if UI depends on cached status?
                } catch(error) {
                    console.error("Failed to clear cache via SW:", error);
                    showSnackbar("キャッシュのクリアに失敗しました。");
@@ -4271,16 +4305,16 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
           console.log("Offline UI button revealed.");
         } else {
           console.warn("Could not find offline menu button in header to reveal.");
-          // Optionally, create the button dynamically if needed, but finding is preferred
         }
 
-        // Ensure the offline modal container exists (it's in the HTML now)
-        if (!elements.modals.offline) {
-             console.warn("Offline modal container not found in HTML.");
-             // If dynamically creating, do it here and add to elements.modals.offline
+        // Ensure the offline modal container exists
+        const offlineModalContainer = elements.modals.offline;
+        if (!offlineModalContainer) {
+             console.error("Offline modal container (#offline-modal) not found in HTML.");
+             return; // Cannot proceed without the container
         }
-         // Setup content and listeners for the modal (can be done once)
-         const modalContentContainer = elements.modals.offline?.querySelector('.modal-content');
+        // Find the content div within the modal
+        const modalContentContainer = offlineModalContainer.querySelector('.modal-content');
          if (modalContentContainer && !modalContentContainer._isSetup) {
              modalContentContainer.innerHTML = `
                  <div class="flex justify-between items-center mb-4">
@@ -4301,11 +4335,14 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
                  </div>
                `;
              // Add event listeners for the new modal's buttons
-             modalContentContainer.querySelector('.close-modal-btn')?.addEventListener('click', () => hideModal('offline'));
+             // Close button listener is handled globally by '.close-modal-btn'
              modalContentContainer.querySelector('#cache-current-btn')?.addEventListener('click', () => this.cacheCurrentSong());
              modalContentContainer.querySelector('#cache-favorites-btn')?.addEventListener('click', () => this.cacheFavoriteSongs());
              modalContentContainer.querySelector('#clear-cache-btn')?.addEventListener('click', () => this.clearCache());
-             modalContentContainer._isSetup = true; // Mark as setup
+             modalContentContainer._isSetup = true; // Mark as setup to prevent re-adding listeners
+             console.log("Offline modal content setup.");
+         } else if (!modalContentContainer) {
+             console.error("Could not find .modal-content inside #offline-modal.");
          }
 
       },
@@ -4316,7 +4353,8 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
         this.setupOfflineDetection();
         // Add UI elements only if SW is potentially active or supported
         if ('serviceWorker' in navigator) {
-            this.addOfflineUI(); // This will now reveal the button and setup the modal content
+            // Delay UI setup slightly to ensure elements are definitely ready
+            setTimeout(() => this.addOfflineUI(), 100);
         }
         console.log('Offline Playback module initialization complete.');
       }
@@ -4347,7 +4385,7 @@ elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
     console.log("Player script parsed. Waiting for YouTube API ready event...");
 
   </script>
-  
+
 </body>
 
 </html>
