@@ -1585,71 +1585,78 @@
       const isCued = playerState === YT.PlayerState.CUED;
       const isBuffering = playerState === YT.PlayerState.BUFFERING;
 
-     // 共通のUI更新処理
-    appState.isPlaying = isPlaying; // Update global state
-    elements.nowPlayingBadge?.classList.toggle('hidden', !isPlaying);
-    elements.shareBtn?.toggleAttribute('disabled', !isPlaying);
-    elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
+      // --- Start: Visualizer State Update ---
+      const previousIsPlaying = appState.isPlaying; // Store previous state
+      appState.isPlaying = isPlaying; // Update global state
+      // --- End: Visualizer State Update ---
 
-       // Update Play/Pause buttons (Desktop and Mobile)
-        const playIcon = '<i class="fas fa-play"></i>';
-        const pauseIcon = '<i class="fas fa-pause"></i>';
-        const playLabel = '再生';
-        const pauseLabel = '一時停止';
+      elements.nowPlayingBadge?.classList.toggle('hidden', !isPlaying);
+      elements.shareBtn?.toggleAttribute('disabled', !isPlaying);
+      elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
 
-        if (elements.btnPlay) {
-            elements.btnPlay.innerHTML = isPlaying ? pauseIcon : playIcon;
-            elements.btnPlay.setAttribute('aria-label', isPlaying ? pauseLabel : playLabel);
-        }
-        if (elements.btnPlayMobile) {
-            elements.btnPlayMobile.innerHTML = isPlaying ? pauseIcon : playIcon;
-            elements.btnPlayMobile.setAttribute('aria-label', isPlaying ? pauseLabel : playLabel);
-        }
+      const playIcon = '<i class="fas fa-play"></i>';
+      const pauseIcon = '<i class="fas fa-pause"></i>';
+      const playLabel = '再生';
+      const pauseLabel = '一時停止';
 
+      if (elements.btnPlay) {
+          elements.btnPlay.innerHTML = isPlaying ? pauseIcon : playIcon;
+          elements.btnPlay.setAttribute('aria-label', isPlaying ? pauseLabel : playLabel);
+      }
+      if (elements.btnPlayMobile) {
+          elements.btnPlayMobile.innerHTML = isPlaying ? pauseIcon : playIcon;
+          elements.btnPlayMobile.setAttribute('aria-label', isPlaying ? pauseLabel : playLabel);
+      }
 
       if (isPlaying) {
-            console.log("[DEBUG] Player is PLAYING, starting progress/visualizer"); // 追加
-            startProgressUpdate();
-            const song = currentSongData();
-            if (song) {
-                addToHistory(song);
-                renderHistoryList();
-            }
-            // 修正: Start visualizer loop if not already running
-            if (appState.visualizer.animationFrameId === null) {
-                console.log("[DEBUG] Starting visualizer loop..."); // 追加
-                drawVisualizer(); // Start visualizer loop
-            }
-        } else if (isPaused || isCued || isEnded) { // 修正: isEndedも追加
-            console.log("[DEBUG] Player is NOT PLAYING, stopping progress/visualizer. State:", playerState); // 追加
-            stopProgressUpdate();
-            // Stop visualizer loop
-            if (appState.visualizer.animationFrameId !== null) {
-                console.log("[DEBUG] Cancelling visualizer loop ID:", appState.visualizer.animationFrameId); // 追加
-                cancelAnimationFrame(appState.visualizer.animationFrameId);
-                appState.visualizer.animationFrameId = null;
-                // Optional: Clear canvas after a short delay or immediately
-                if (appState.visualizer.canvasCtx && appState.visualizer.canvas) {
-                     // Clear immediately is fine
-                     appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
-                     console.log("[DEBUG] Visualizer canvas cleared on stop."); // 追加
-                }
-            }
-            // Reset progress bar to 0 if song ended or cued
-            if (isCued || isEnded) {
-                updateProgress(); // Ensure progress bar shows 00:00 / duration
-            }
-        } else if (isBuffering) {
-            console.log("Buffering...");
-            // Optionally stop visualizer during buffering? Or keep it running?
-            // Let's keep it running for now.
-        }
+          console.log("[DEBUG] Player is PLAYING, starting progress update.");
+          startProgressUpdate();
+          const song = currentSongData();
+          if (song) {
+              addToHistory(song);
+              renderHistoryList();
+          }
+          // --- Start: Visualizer Loop Start Logic (Modified) ---
+          // If the visualizer loop isn't already running, start it.
+          if (appState.visualizer.animationFrameId === null) {
+              console.log("[DEBUG] Starting visualizer loop...");
+              drawVisualizer(); // Start visualizer loop
+          } else {
+              console.log("[DEBUG] Visualizer loop already running. ID:", appState.visualizer.animationFrameId);
+          }
+          // --- End: Visualizer Loop Start Logic ---
 
-         if (isEnded) {
-             handleSongEnd(); // Handle song ending logic (loop, next)
-         }
+      } else if (isPaused || isCued || isEnded || isBuffering) { // Include Buffering here to stop progress
+          console.log("[DEBUG] Player is NOT PLAYING (or buffering), stopping progress update. State:", playerState);
+          stopProgressUpdate();
+
+          // --- Start: Visualizer Loop Stop Logic (No change needed, handled within drawVisualizer) ---
+          // The visualizer loop will now stop itself gracefully when isPlaying becomes false
+          // and the animation decays. We don't force stop it here unless absolutely necessary.
+          // If you want immediate clearing on pause/end/cue:
+          /*
+          if (appState.visualizer.animationFrameId !== null) {
+              console.log("[DEBUG] Cancelling visualizer loop ID:", appState.visualizer.animationFrameId);
+              cancelAnimationFrame(appState.visualizer.animationFrameId);
+              appState.visualizer.animationFrameId = null;
+              if (appState.visualizer.canvasCtx && appState.visualizer.canvas) {
+                   appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
+                   console.log("[DEBUG] Visualizer canvas cleared on stop.");
+              }
+          }
+          */
+          // --- End: Visualizer Loop Stop Logic ---
+
+          // Reset progress bar to 0 if song ended or cued
+          if (isCued || isEnded) {
+              updateProgress(); // Ensure progress bar shows 00:00 / duration
+          }
+      }
+
+      if (isEnded) {
+          handleSongEnd(); // Handle song ending logic (loop, next)
+      }
     }
-
      function onPlayerError(event) {
          console.error("YouTube Player Error:", event.data);
          let errorMessage = "動画の再生中にエラーが発生しました。";
@@ -1793,7 +1800,8 @@
       }
     }
 
-    function initAudioAnalyser() {
+        // 修正箇所: initAudioAnalyser 関数
+        function initAudioAnalyser() {
       console.log("Initializing visualizer...");
       try {
         appState.visualizer.canvas = elements.visualizerCanvas;
@@ -1807,12 +1815,26 @@
             return;
         }
         // Set a buffer length for the simulated data
-        appState.visualizer.bufferLength = 128; // Example value
+        appState.visualizer.bufferLength = 64;
         appState.visualizer.dataArray = new Uint8Array(appState.visualizer.bufferLength);
         console.log("Visualizer canvas and context obtained.");
-        resizeCanvas(); // Set initial size
+
+        // --- Start: Initial Resize and Draw (Modified) ---
+        // Delay the initial resize/draw slightly using requestAnimationFrame
+        // to ensure the rendering context and potentially CSS are ready.
+        requestAnimationFrame(() => {
+            try {
+                 resizeCanvas(); // Set initial size AND trigger an initial draw in the next frame
+                 console.log("Initial resizeCanvas called via requestAnimationFrame.");
+            } catch(resizeError) {
+                 console.error("Error during initial resizeCanvas call:", resizeError);
+                 if(elements.visualizerCanvas) elements.visualizerCanvas.style.display = 'none'; // Hide on error
+            }
+        });
+        // --- End: Initial Resize and Draw ---
+
       } catch (error) {
-        console.error('Visualizer setup failed:', error);
+        console.error('Visualizer setup failed during init:', error); // Log specific init error
         if(elements.visualizerCanvas) elements.visualizerCanvas.style.display = 'none'; // Hide if setup fails
       }
     }
@@ -3631,10 +3653,11 @@
     }
 
     // --- Visualizer Drawing (Simulation, Corrected Loop Logic) ---
-    function drawVisualizer() {
+        // --- Visualizer Drawing (Simulation, Corrected Loop Logic) ---
+        function drawVisualizer() {
         // Guard clause: Check essential elements
         if (!appState.visualizer.canvasCtx || !appState.visualizer.dataArray || !appState.visualizer.canvas) {
-             console.warn("[DEBUG] Visualizer draw cancelled: canvas/ctx/dataArray missing");
+             // console.warn("[DEBUG] Visualizer draw cancelled: canvas/ctx/dataArray missing"); // Reduce log noise
              appState.visualizer.animationFrameId = null; // Ensure loop stops if elements are gone
              return;
         }
@@ -3645,18 +3668,20 @@
         const isPlayingNow = appState.isPlaying;
 
         // Simulate audio data based on current state
-        let hasPositiveValue = false; // Track if any bar has height for decay continuation
+        let hasPositiveValue = false; // Track if any bar has significant height for decay continuation
         for (let i = 0; i < bufferLength; i++) {
             if (isPlayingNow) {
-                 const timeFactor = Date.now() * 0.005 + i * 0.1;
-                 const randomFactor = Math.random() * 40; // Reduced randomness
-                 const sineValue = (Math.sin(timeFactor) + 1) / 2;
-                 dataArray[i] = Math.max(0, Math.min(255, (sineValue * 130) + randomFactor + 15)); // Adjusted values
-                 if (dataArray[i] > 0.1) hasPositiveValue = true;
+                 // Make simulation more dynamic and visually interesting
+                 const timeFactor = Date.now() * 0.002 + i * 0.08; // Slower time, more frequency variation
+                 const randomFactor = Math.random() * 30; // Less randomness
+                 const sineValue = (Math.sin(timeFactor) + 1) / 2; // 0 to 1
+                 const baseHeight = 10; // Minimum base activity
+                 dataArray[i] = Math.max(0, Math.min(255, baseHeight + (sineValue * 150) + randomFactor)); // Adjusted scale
+                 if (dataArray[i] > 1) hasPositiveValue = true; // Check against a small threshold
             } else {
-                 // Decay effect: decrease value, ensure it reaches zero
-                 dataArray[i] = Math.max(0, dataArray[i] * 0.92 - 0.8); // Adjusted decay
-                 if (dataArray[i] > 0.1) hasPositiveValue = true; // Check if still decaying
+                 // Decay effect: Smoother decay, ensures it reaches zero eventually
+                 dataArray[i] = Math.max(0, dataArray[i] * 0.96 - 0.5); // Slower decay rate, small constant reduction
+                 if (dataArray[i] > 1) hasPositiveValue = true; // Check if still decaying significantly
             }
         }
         // console.log("[DEBUG] Visualizer data (first 5):", dataArray.slice(0, 5)); // Frequent log, disable normally
@@ -3668,7 +3693,7 @@
 
         // Guard clause: Check for valid canvas dimensions
         if (width <= 0 || height <= 0) {
-             console.warn("[DEBUG] Visualizer draw cancelled: canvas dimensions invalid (", width, "x", height, ")");
+             // console.warn("[DEBUG] Visualizer draw cancelled: canvas dimensions invalid (", width, "x", height, ")"); // Reduce log noise
              appState.visualizer.animationFrameId = null; // Stop loop if canvas has no size
              return;
         }
@@ -3676,62 +3701,56 @@
         // --- Drawing Logic ---
         canvasCtx.clearRect(0, 0, width, height);
 
-        const isDarkMode = elements.body?.classList.contains('dark');
-        // Use CSS variables for colors
-        const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim();
-        const secondary = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim();
-        // Use a fallback background or define a specific CSS var for visualizer BG
-        const vizBg = getComputedStyle(document.documentElement).getPropertyValue('--visualizer-background', 'transparent').trim(); // Example: Add --visualizer-background in :root if needed
+        // Get colors safely with fallbacks
+        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#8e24aa'; // Fallback purple
+        const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim() || '#5e35b1'; // Fallback darker purple
 
-        // Optionally fill background (or keep transparent)
-        if(vizBg !== 'transparent') {
-            canvasCtx.fillStyle = vizBg;
-            canvasCtx.fillRect(0, 0, width, height);
-        }
-
-
-        const gradient = canvasCtx.createLinearGradient(0, height * 0.3, 0, height); // Gradient starts lower
-        gradient.addColorStop(0, primary || '#8e24aa'); // Fallback color
-        gradient.addColorStop(1, secondary || '#5e35b1');
+        const gradient = canvasCtx.createLinearGradient(0, 0, 0, height); // Gradient covers full height
+        gradient.addColorStop(0, primaryColor);
+        gradient.addColorStop(1, secondaryColor);
         canvasCtx.fillStyle = gradient;
 
-        const barWidthRatio = 1.2; // Bar width relative to available space per bar
-        const spacingRatio = 0.3; // Spacing relative to bar width
-        const barWidth = Math.max(1, (width / bufferLength) * barWidthRatio);
-        const spacing = Math.max(1, barWidth * spacingRatio);
-        const totalBarAndSpaceWidth = barWidth + spacing;
-        const numBarsThatFit = Math.floor((width + spacing) / totalBarAndSpaceWidth); // Calculate how many fit
-        const actualBufferLength = Math.min(bufferLength, numBarsThatFit); // Use the smaller number
-        const offsetX = (width - (actualBufferLength * totalBarAndSpaceWidth - spacing)) / 2; // Center the bars
+        const barWidthRatio = 0.7; // Make bars slightly narrower relative to space
+        const spacingRatio = 0.4; // Increase spacing relative to bar width
+        const totalBarWidth = width / bufferLength; // Max space per bar
+        const barWidth = Math.max(1, totalBarWidth * barWidthRatio); // Actual bar width
+        const spacing = Math.max(1, totalBarWidth * spacingRatio); // Spacing between bars
+        const totalBarAndSpaceWidth = barWidth + spacing; // Width occupied by one bar + space
+        // Adjust offset to center bars properly
+        const totalDrawingWidth = actualBufferLength * totalBarAndSpaceWidth - spacing; // Total width of drawn elements
+        const offsetX = Math.max(0, (width - totalDrawingWidth) / 2); // Center the bars
 
         let x = offsetX;
+        // Loop only through the number of bars that actually fit
+        const numBarsThatFit = Math.floor((width + spacing) / totalBarAndSpaceWidth);
+        const actualBufferLength = Math.min(bufferLength, numBarsThatFit);
+
         for (let i = 0; i < actualBufferLength; i++) {
-            // Scale bar height, ensure minimum height for visibility
-            const barHeight = Math.max(1, (dataArray[i] / 255) * height * 0.9); // Adjusted scaling
-            const borderRadius = Math.min(4, barWidth / 3); // Smaller radius, max 4px
+            // Scale bar height, ensure minimum height for visibility when active
+            const rawHeight = (dataArray[i] / 255) * height * 0.95; // Scale height (95% of canvas height max)
+            const barHeight = Math.max(1, rawHeight); // Ensure at least 1px height if data > 0
+            const borderRadius = Math.min(3, barWidth / 3); // Smaller radius
 
-             // Draw rounded rectangle
-             canvasCtx.beginPath();
-             canvasCtx.moveTo(x + borderRadius, height); // Start bottom left
-             canvasCtx.lineTo(x + borderRadius, height - barHeight + borderRadius); // Up to top left radius start
+            // Draw rounded rectangle (Simplified drawing for potentially better performance)
+            canvasCtx.beginPath();
+             // Use Math.round for potentially sharper pixels
+             const startX = Math.round(x);
+             const startY = Math.round(height);
+             const endX = Math.round(x + barWidth);
+             const endY = Math.round(height - barHeight); // Top Y coordinate
 
-             if (barHeight > borderRadius * 2) { // Only draw curves if tall enough
-                 // Top-left arc
-                canvasCtx.arcTo(x, height - barHeight, x + borderRadius, height - barHeight, borderRadius);
-                // Top line
-                canvasCtx.lineTo(x + barWidth - borderRadius, height - barHeight);
-                // Top-right arc
-                canvasCtx.arcTo(x + barWidth, height - barHeight, x + barWidth, height - barHeight + borderRadius, borderRadius);
-             } else { // Draw flat top for very short bars
-                 canvasCtx.lineTo(x, height-barHeight); // Straight up
-                 canvasCtx.lineTo(x + barWidth, height - barHeight); // Straight across
-                 canvasCtx.lineTo(x + barWidth, height - barHeight + borderRadius); // Connect to right edge start
+             // No need for complex arcs if borderRadius is small, rect is often sufficient
+             if (barHeight > 1) { // Only draw if height is visible
+                 canvasCtx.moveTo(startX, startY);
+                 canvasCtx.lineTo(startX, endY + borderRadius); // To top-left radius point (approx)
+                 // Simple rounded top using quadraticCurveTo (or just rect for performance)
+                 canvasCtx.quadraticCurveTo(startX, endY, startX + borderRadius, endY);
+                 canvasCtx.lineTo(endX - borderRadius, endY);
+                 canvasCtx.quadraticCurveTo(endX, endY, endX, endY + borderRadius);
+                 canvasCtx.lineTo(endX, startY);
+                 // No need to close path explicitly with fill
              }
-             // Right edge down
-             canvasCtx.lineTo(x + barWidth, height);
-             // canvasCtx.lineTo(x + borderRadius, height); // Close path at bottom (optional, fill usually handles)
-             canvasCtx.closePath();
-             canvasCtx.fill();
+             canvasCtx.fill(); // Fill the path
 
             x += totalBarAndSpaceWidth;
         }
@@ -3743,7 +3762,8 @@
              appState.visualizer.animationFrameId = requestAnimationFrame(drawVisualizer);
         } else {
              // Stop the loop completely if not playing and animation has fully decayed
-             canvasCtx.clearRect(0, 0, width, height); // Final clear
+             // Optional: Clear canvas one last time? Or let the last frame stay?
+             // canvasCtx.clearRect(0, 0, width, height); // Final clear if desired
              appState.visualizer.animationFrameId = null;
              console.log("[DEBUG] Visualizer loop stopped naturally (decayed).");
         }
@@ -3751,24 +3771,34 @@
 
 
     // --- Canvas Resize ---
-    function resizeCanvas() {
-        if (!appState.visualizer.canvas) return;
-        const parent = appState.visualizer.canvas.parentElement;
+        // --- Canvas Resize ---
+        function resizeCanvas() {
+        const canvas = appState.visualizer.canvas; // Get canvas from state
+        if (!canvas) return;
+        const parent = canvas.parentElement;
         if (!parent) return;
         const rect = parent.getBoundingClientRect();
-        // Only resize if dimensions actually changed and are valid
-        if (rect.width > 0 && rect.height > 0 && (appState.visualizer.canvas.width !== rect.width || appState.visualizer.canvas.height !== rect.height)) {
-            appState.visualizer.canvas.width = rect.width;
-            appState.visualizer.canvas.height = rect.height;
-            // console.log("Resized visualizer canvas to:", rect.width, rect.height);
 
-             // Re-draw immediately to reflect new size, especially if paused/decaying
+        // Only resize if dimensions actually changed AND are valid positive numbers
+        if (rect.width > 0 && rect.height > 0 && (canvas.width !== rect.width || canvas.height !== rect.height)) {
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            console.log("Resized visualizer canvas to:", rect.width, rect.height);
+
+             // --- Start: Trigger Redraw on Resize ---
+             // Always attempt to draw one frame after resize to reflect the new size,
+             // even if the animation loop isn't currently running (e.g., paused state).
+             // The drawVisualizer function will handle whether to continue the loop.
              if (appState.visualizer.animationFrameId === null) {
-                 // Draw one frame to show the current (potentially decayed) state at the new size
+                 // If the loop isn't running, draw a single frame now.
+                 // This ensures the visualizer isn't blank after resize when paused.
                  drawVisualizer();
-                 // Crucially, do NOT restart the loop here if it wasn't already running
-                 // The drawVisualizer function itself will stop if !isPlayingNow and !hasPositiveValue
              }
+             // If the loop *is* running (animationFrameId is not null),
+             // the next frame requested by the loop will automatically use the new size.
+             // --- End: Trigger Redraw on Resize ---
+        } else if (rect.width === 0 || rect.height === 0) {
+            // console.warn("Visualizer parent has zero width or height, cannot resize canvas.");
         }
     }
 
