@@ -1026,6 +1026,54 @@
         #bottom-controls { display: none; }
     }
 
+     /* --- Now Playing Bar Styles --- */
+     #now-playing-bar {
+      /* Add transition for smooth appearance */
+      transition: transform 0.3s ease-out, background-color 0.3s ease, border-color 0.3s ease;
+    }
+
+    #now-playing-bar.active {
+      /* Slide in from bottom when active */
+      transform: translateY(0);
+    }
+
+    /* Adjust main content padding when bar is active to prevent overlap */
+    body.has-now-playing-bar #app > footer {
+        /* Adjust this value (e.g., 70px) based on the actual height of your now-playing-bar */
+        padding-bottom: 70px;
+    }
+     /* Adjust mobile bottom controls position if now playing bar is also visible */
+     /* Note: This scenario might need careful UX consideration */
+     body.has-now-playing-bar.has-bottom-controls #bottom-controls {
+         /* Adjust this value based on now-playing-bar height */
+         bottom: 68px;
+     }
+     /* Adjust snackbar position when now playing bar is active */
+      body.has-now-playing-bar .snackbar {
+         /* Calculate position considering bar height and safe area */
+         /* Adjust the '68px' if your bar height is different */
+         bottom: calc(env(safe-area-inset-bottom, 0px) + 68px + 10px); /* Bar height + margin */
+      }
+      /* If mobile controls are *also* active, stack snackbar higher */
+       body.has-now-playing-bar.has-bottom-controls .snackbar {
+            /* Adjust '68px' (bar height) and '70px' (controls height) if needed */
+           bottom: calc(env(safe-area-inset-bottom, 0px) + 68px + 70px + 10px); /* Bar height + Controls height + margin */
+       }
+
+
+    /* Custom styling for range input thumb (Tailwind JIT might handle this better now) */
+    #volume-slider-bar::-webkit-slider-thumb {
+        background: var(--primary-color);
+    }
+    #volume-slider-bar::-moz-range-thumb {
+        background: var(--primary-color);
+    }
+
+    /* Make clickable area larger for info */
+    #now-playing-bar-info {
+        min-width: 0; /* Prevent flex item from overflowing */
+    }
+
   </style>
 </head>
 
@@ -1345,7 +1393,49 @@
       <p>© 2025 Rei Kikuchi Music Player | このプレイヤーはRei Kikuchiによって作られました</p>
     </footer>
   </div> <!-- End #app -->
+ <!-- =========== Now Playing Bar (Mini Player) =========== -->
+ <div id="now-playing-bar" class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-lg border-t border-gray-200 dark:border-gray-700 z-[450] transition-transform duration-300 ease-out translate-y-full">
+    <div class="max-w-screen-xl mx-auto px-4 py-2 flex items-center gap-4">
+      <!-- Song Info -->
+      <div class="flex items-center gap-3 flex-grow overflow-hidden cursor-pointer" id="now-playing-bar-info">
+        <img id="now-playing-bar-thumb" src="" alt="Album Art" class="w-10 h-10 rounded object-cover bg-gray-300 dark:bg-gray-600 flex-shrink-0">
+        <div class="overflow-hidden">
+          <div id="now-playing-bar-title" class="text-sm font-medium truncate text-gray-900 dark:text-gray-100">曲が選択されていません</div>
+          <div id="now-playing-bar-artist" class="text-xs text-gray-500 dark:text-gray-400 truncate">Rei Kikuchi</div>
+        </div>
+      </div>
 
+      <!-- Desktop/Tablet Controls -->
+      <div class="hidden md:flex items-center gap-4 flex-shrink-0">
+         <button id="btn-prev-bar" class="text-gray-700 dark:text-gray-300 hover:text-primary-color dark:hover:text-primary-color focusable transition-colors" aria-label="前の曲">
+           <i class="fas fa-step-backward text-lg"></i>
+         </button>
+         <button id="btn-play-bar" class="text-gray-700 dark:text-gray-300 hover:text-primary-color dark:hover:text-primary-color w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 focusable transition-colors" aria-label="再生">
+           <i class="fas fa-play text-xl"></i>
+         </button>
+         <button id="btn-next-bar" class="text-gray-700 dark:text-gray-300 hover:text-primary-color dark:hover:text-primary-color focusable transition-colors" aria-label="次の曲">
+           <i class="fas fa-step-forward text-lg"></i>
+         </button>
+      </div>
+
+        <!-- Progress (Optional but nice) -->
+       <div class="hidden lg:block w-40 flex-shrink-0 relative pt-1">
+            <div id="now-playing-bar-progress-container" class="h-1 bg-gray-300 dark:bg-gray-600 rounded-full overflow-hidden cursor-pointer">
+                <div id="now-playing-bar-progress" class="h-full bg-primary-color rounded-full" style="width: 0%;"></div>
+            </div>
+       </div>
+
+       <!-- Volume (Optional, Desktop only maybe) -->
+       <div class="hidden lg:flex items-center gap-2 flex-shrink-0">
+            <i id="now-playing-bar-volume-icon" class="fas fa-volume-up text-sm text-gray-500 dark:text-gray-400" aria-hidden="true"></i>
+            <input type="range" id="volume-slider-bar" min="0" max="100" value="100" aria-label="音量調整" class="w-20 h-1 bg-gray-300 dark:bg-gray-600 rounded-full appearance-none cursor-pointer focusable [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary-color">
+        </div>
+
+       <!-- Expand/Queue Button (Future) -->
+       <!-- <button class="text-gray-600 dark:text-gray-400"><i class="fas fa-chevron-up"></i></button> -->
+    </div>
+  </div>
+  <!-- =========== End Now Playing Bar =========== -->
   <!-- Fixed Bottom Controls (Mobile Only) -->
   <div id="bottom-controls" class="hidden"> <!-- Start hidden, shown by JS if needed -->
       <div class="controls-left">
@@ -1374,7 +1464,7 @@
 
   <!-- YouTube API -->
   <script src="https://www.youtube.com/iframe_api"></script>
-  <script>
+   <script>
     // ==========================================================================
     // Constants
     // ==========================================================================
@@ -1404,6 +1494,7 @@
       snackbarTimeoutId: null, // For managing snackbar display
       activeModalId: null, // Track the currently open modal
       isPlayerReady: false,
+      isBarVisible: false, // Track if the Now Playing Bar should be visible
       visualizer: {
           context: null, // Not used for actual AudioContext here
           analyser: null,  // Not used for actual AnalyserNode here
@@ -1508,10 +1599,24 @@
             btnNextMobile: document.getElementById('btn-next-mobile'),
             btnShuffleMobile: document.getElementById('btn-shuffle-mobile'),
             btnLoopMobile: document.getElementById('btn-loop-mobile'),
+            // --- Now Playing Bar Elements ---
+            nowPlayingBar: document.getElementById('now-playing-bar'),
+            nowPlayingBarInfo: document.getElementById('now-playing-bar-info'),
+            nowPlayingBarThumb: document.getElementById('now-playing-bar-thumb'),
+            nowPlayingBarTitle: document.getElementById('now-playing-bar-title'),
+            nowPlayingBarArtist: document.getElementById('now-playing-bar-artist'),
+            btnPlayBar: document.getElementById('btn-play-bar'),
+            btnPrevBar: document.getElementById('btn-prev-bar'),
+            btnNextBar: document.getElementById('btn-next-bar'),
+            nowPlayingBarProgress: document.getElementById('now-playing-bar-progress'),
+            nowPlayingBarProgressContainer: document.getElementById('now-playing-bar-progress-container'),
+            volumeSliderBar: document.getElementById('volume-slider-bar'),
+            volumeIconBar: document.getElementById('now-playing-bar-volume-icon'),
         };
         // Optional: Add checks here to ensure critical elements were found
         if (!elements.btnPlay) console.warn("Desktop Play button not found during initialization.");
         if (!elements.btnPlayMobile) console.warn("Mobile Play button not found during initialization.");
+        if (!elements.nowPlayingBar) console.error("Now Playing Bar not found during initialization!");
         if (!elements.playlist) console.error("ERROR: Playlist container not found during initialization!");
         if (!elements.modals.account) console.error("ERROR: Account Modal not found during initialization!");
         if (!elements.visualizerCanvas) console.error("ERROR: Visualizer Canvas not found during initialization!");
@@ -1555,6 +1660,7 @@
       appState.isPlayerReady = true;
       if(elements.volumeSlider) elements.volumeSlider.value = appState.volume; // Now elements are initialized
       else console.warn("Volume slider element not found after init.");
+      if(elements.volumeSliderBar) elements.volumeSliderBar.value = appState.volume; // Init bar slider too
 
       if(event.target && typeof event.target.setVolume === 'function') {
           try { event.target.setVolume(appState.volume); } catch (e) { console.warn("Failed to set initial volume", e)}
@@ -1570,7 +1676,7 @@
 
       // Initialize YouTube Sync and Offline features *after* player is ready and elements are known
       setupYouTubeSync();
-      offlinePlayback.init();
+      // offlinePlayback.init(); // Offline features disabled if service-worker.js is not ready
 
       console.log("Player initialization sequence complete.");
     }
@@ -1590,6 +1696,7 @@
       appState.isPlaying = isPlaying; // Update global state
       // --- End: Visualizer State Update ---
 
+      // --- Update Main Player UI ---
       elements.nowPlayingBadge?.classList.toggle('hidden', !isPlaying);
       elements.shareBtn?.toggleAttribute('disabled', !isPlaying);
       elements.openYouTubeBtn?.toggleAttribute('disabled', !currentSongData()?.id);
@@ -1607,6 +1714,9 @@
           elements.btnPlayMobile.innerHTML = isPlaying ? pauseIcon : playIcon;
           elements.btnPlayMobile.setAttribute('aria-label', isPlaying ? pauseLabel : playLabel);
       }
+      // === Call Update for Now Playing Bar ===
+      updateNowPlayingBar();
+      // =====================================
 
       if (isPlaying) {
           console.log("[DEBUG] Player is PLAYING, starting progress update.");
@@ -1617,7 +1727,6 @@
               renderHistoryList();
           }
           // --- Start: Visualizer Loop Start Logic (Modified) ---
-          // If the visualizer loop isn't already running, start it.
           if (appState.visualizer.animationFrameId === null) {
               console.log("[DEBUG] Starting visualizer loop...");
               drawVisualizer(); // Start visualizer loop
@@ -1631,26 +1740,13 @@
           stopProgressUpdate();
 
           // --- Start: Visualizer Loop Stop Logic (No change needed, handled within drawVisualizer) ---
-          // The visualizer loop will now stop itself gracefully when isPlaying becomes false
-          // and the animation decays. We don't force stop it here unless absolutely necessary.
-          // If you want immediate clearing on pause/end/cue:
-          /*
-          if (appState.visualizer.animationFrameId !== null) {
-              console.log("[DEBUG] Cancelling visualizer loop ID:", appState.visualizer.animationFrameId);
-              cancelAnimationFrame(appState.visualizer.animationFrameId);
-              appState.visualizer.animationFrameId = null;
-              if (appState.visualizer.canvasCtx && appState.visualizer.canvas) {
-                   appState.visualizer.canvasCtx.clearRect(0, 0, appState.visualizer.canvas.width, appState.visualizer.canvas.height);
-                   console.log("[DEBUG] Visualizer canvas cleared on stop.");
-              }
-          }
-          */
           // --- End: Visualizer Loop Stop Logic ---
 
           // Reset progress bar to 0 if song ended or cued
           if (isCued || isEnded) {
               updateProgress(); // Ensure progress bar shows 00:00 / duration
           }
+          updateNowPlayingBar(); // Ensure bar reflects paused state
       }
 
       if (isEnded) {
@@ -1691,6 +1787,7 @@
             }
          }
          resetPlayerInfo();
+         updateNowPlayingBar(); // Update bar to show reset state
      }
 
     // ==========================================================================
@@ -1867,7 +1964,7 @@
       elements.searchInput?.addEventListener('input', handleSearch);
       elements.modalButtons.account?.addEventListener('click', showAccountModal); // Header account button
       // elements.youtubeSyncBtn is added dynamically, listener attached in setupYouTubeSync
-      elements.offlineMenuBtn?.addEventListener('click', () => offlinePlayback.showOfflineModal()); // Offline button
+      // elements.offlineMenuBtn?.addEventListener('click', () => offlinePlayback.showOfflineModal()); // Offline button - Disabled
 
        // Action Buttons
        elements.shareBtn?.addEventListener('click', showShareModal);
@@ -1920,6 +2017,16 @@
       elements.modalButtons.logout?.addEventListener('click', handleLogout);
       elements.modalButtons.syncData?.addEventListener('click', syncUserData);
 
+       // --- Now Playing Bar Controls ---
+       elements.btnPlayBar?.addEventListener('click', togglePlayPause); // Reuse existing function
+       elements.btnPrevBar?.addEventListener('click', playPreviousSong); // Reuse existing function
+       elements.btnNextBar?.addEventListener('click', playNextSong); // Reuse existing function
+       elements.volumeSliderBar?.addEventListener('input', handleVolumeChangeBar); // New handler needed if separate logic
+       elements.nowPlayingBarProgressContainer?.addEventListener('click', seekToPositionBar); // New handler needed if separate logic
+       // Optional: Click on song info could open full player view or something
+       // elements.nowPlayingBarInfo?.addEventListener('click', () => { /* Future action */ });
+
+
        // --- Close Modals on Backdrop Click ---
        if (elements.modals) {
            Object.entries(elements.modals).forEach(([modalId, modal]) => { // Use entries to get key/value
@@ -1953,6 +2060,47 @@
             // console.warn("List element not found for event delegation."); // Less noisy log
         }
     }
+
+    // --- New Handlers for Bar Controls ---
+    function handleVolumeChangeBar() {
+        if(!elements.volumeSliderBar) return;
+        const volume = parseInt(elements.volumeSliderBar.value);
+        setVolume(volume); // Reuse existing setVolume function
+        // Update volume icon based on level (optional)
+        updateVolumeIcon(elements.volumeIconBar, volume);
+    }
+
+    function seekToPositionBar(event) {
+        if (!appState.isPlayerReady || !currentSongId() || !elements.nowPlayingBarProgressContainer || !appState.player) return;
+        const rect = elements.nowPlayingBarProgressContainer.getBoundingClientRect();
+        const clickX = event.clientX - rect.left; // Use clientX for fixed bar
+        const clampedX = Math.max(0, Math.min(clickX, rect.width));
+        if (rect.width <= 0) return;
+        const percent = clampedX / rect.width;
+        try {
+            const duration = appState.player.getDuration();
+            if (duration > 0) {
+                const seekTime = duration * percent;
+                appState.player.seekTo(seekTime, true);
+                updateProgress(); // Update both progress bars
+            }
+        } catch (error) {
+            console.error("Error seeking on bar:", error);
+            showSnackbar("シーク中にエラーが発生しました。");
+         }
+    }
+
+     // Helper to update volume icon
+     function updateVolumeIcon(iconElement, volume) {
+         if (!iconElement) return;
+         if (volume === 0) {
+             iconElement.className = iconElement.className.replace(/fa-volume-([\w-]+)/, 'fa-volume-mute');
+         } else if (volume < 50) {
+             iconElement.className = iconElement.className.replace(/fa-volume-([\w-]+)/, 'fa-volume-down');
+         } else {
+             iconElement.className = iconElement.className.replace(/fa-volume-([\w-]+)/, 'fa-volume-up');
+         }
+     }
 
     // ==========================================================================
     // Event Handlers for Delegated List Clicks
@@ -2089,7 +2237,7 @@
          // console.log("[DEBUG] UserPlaylists: Item itself clicked. Calling viewPlaylist...");
          viewPlaylist(playlistId); // Default action is view
      }
-}
+    }
 
       function handlePlaylistDetailClick(event) {
           const target = event.target;
@@ -2496,6 +2644,10 @@
         }
 
         updateActiveListItem();
+        // === Call Update for Now Playing Bar ===
+        updateNowPlayingBar();
+        // =====================================
+
         // Disable buttons initially, they will be enabled when playing starts (via onPlayerStateChange)
         if(elements.shareBtn) elements.shareBtn.disabled = true;
         if(elements.openYouTubeBtn) elements.openYouTubeBtn.disabled = true;
@@ -2616,6 +2768,10 @@
                      console.log("Reached end of playlist, stopping.");
                      // UI should reset via the ENDED state in onPlayerStateChange
                      // No need to explicitly call pause/seek here, let state change handle it.
+                     // Update the bar to show stopped state though
+                     appState.isPlaying = false; // Explicitly set state for UI update
+                     updateNowPlayingBar();
+                     updateProgress(); // Ensure main progress is 0
                 } else {
                     console.log("Playing next song after end.");
                     playNextSong();
@@ -2696,10 +2852,18 @@
      function setVolume(volume) {
          volume = Math.max(0, Math.min(100, volume)); // Clamp
          appState.volume = volume;
+         // Update main volume slider
          if(elements.volumeSlider) elements.volumeSlider.value = volume;
+         // Update bar volume slider
+         if(elements.volumeSliderBar) elements.volumeSliderBar.value = volume;
+         // Update player volume
          if (appState.isPlayerReady && appState.player && typeof appState.player.setVolume === 'function') {
               try { appState.player.setVolume(volume); } catch (e) { console.error("Error setting volume:", e); }
          }
+          // Update volume icons (both if they exist)
+          // Assuming main volume icon has ID 'desktop-volume-icon' or similar if needed
+          // updateVolumeIcon(document.getElementById('desktop-volume-icon'), volume);
+          updateVolumeIcon(elements.volumeIconBar, volume);
      }
 
     function adjustVolume(delta) {
@@ -2783,6 +2947,7 @@
              if(elements.currentSongDuration) {
                  elements.currentSongDuration.textContent = song?.duration || '--:--';
              }
+             updateNowPlayingBar(); // Ensure bar is also reset/updated
             return;
         }
 
@@ -2822,6 +2987,9 @@
                       elements.currentSongDuration.textContent = song?.duration || '--:--';
                  }
             }
+            // Also update the Now Playing Bar's progress and potentially play/pause state
+            updateNowPlayingBar();
+
         } catch (error) {
             // Don't log frequent errors during normal operation (like getting time before ready)
             // console.error("Error updating progress:", error);
@@ -2830,6 +2998,7 @@
              totalTimeEl.textContent = '00:00';
              if(elements.currentSongDuration) elements.currentSongDuration.textContent = '--:--';
              stopProgressUpdate(); // Stop interval if error occurs
+             updateNowPlayingBar(); // Update bar even on error
         }
     }
 
@@ -2843,7 +3012,69 @@
          if(elements.openYouTubeBtn) elements.openYouTubeBtn.disabled = true;
          if(elements.nowPlayingBadge) elements.nowPlayingBadge.classList.add('hidden');
          updateActiveListItem(); // Clear highlights
+         updateNowPlayingBar(); // Update bar to reset state
      }
+
+    // ==========================================================================
+    // Now Playing Bar Update Function
+    // ==========================================================================
+    function updateNowPlayingBar() {
+        const song = currentSongData();
+        const isVisible = !!song; // Show bar if a song is selected/playing
+
+        if (appState.isBarVisible !== isVisible) {
+             appState.isBarVisible = isVisible;
+             elements.nowPlayingBar?.classList.toggle('active', isVisible);
+             elements.body?.classList.toggle('has-now-playing-bar', isVisible);
+        }
+
+        if (isVisible && song && elements.nowPlayingBar) {
+            // Update Bar Content
+            if (elements.nowPlayingBarThumb) {
+                 elements.nowPlayingBarThumb.src = song.thumbnail || '';
+                 elements.nowPlayingBarThumb.alt = song.title || 'Album Art';
+            }
+            if(elements.nowPlayingBarTitle) elements.nowPlayingBarTitle.textContent = song.title || '不明なタイトル';
+            // Artist is fixed in this example, update if dynamic
+            if(elements.nowPlayingBarArtist) elements.nowPlayingBarArtist.textContent = 'Rei Kikuchi'; // Assuming fixed artist
+
+             // Update Play/Pause Button Icon in Bar
+             const playIconBar = elements.btnPlayBar?.querySelector('i');
+             if (playIconBar) {
+                 playIconBar.className = `fas ${appState.isPlaying ? 'fa-pause' : 'fa-play'} text-xl`;
+             }
+              if(elements.btnPlayBar) elements.btnPlayBar.setAttribute('aria-label', appState.isPlaying ? '一時停止' : '再生');
+
+            // Update Progress Bar (in bar)
+            if(elements.nowPlayingBarProgress && appState.player) {
+                try {
+                    const currentTime = appState.player.getCurrentTime();
+                    const duration = appState.player.getDuration();
+                    if (typeof currentTime === 'number' && typeof duration === 'number' && duration > 0) {
+                         const percent = Math.min(100, Math.max(0, (currentTime / duration) * 100));
+                         elements.nowPlayingBarProgress.style.width = `${percent}%`;
+                    } else {
+                         elements.nowPlayingBarProgress.style.width = '0%';
+                    }
+                } catch(e) { elements.nowPlayingBarProgress.style.width = '0%'; }
+            }
+
+            // Update Volume Slider (in bar) & Icon
+             if(elements.volumeSliderBar) elements.volumeSliderBar.value = appState.volume;
+             updateVolumeIcon(elements.volumeIconBar, appState.volume);
+
+        } else if (!isVisible && elements.nowPlayingBar) {
+             // Optionally clear fields when hidden
+             if(elements.nowPlayingBarTitle) elements.nowPlayingBarTitle.textContent = '曲が選択されていません';
+             if(elements.nowPlayingBarThumb) elements.nowPlayingBarThumb.src = '';
+             if(elements.nowPlayingBarProgress) elements.nowPlayingBarProgress.style.width = '0%';
+             // Reset play button in bar
+             const playIconBar = elements.btnPlayBar?.querySelector('i');
+             if (playIconBar) playIconBar.className = 'fas fa-play text-xl';
+             if(elements.btnPlayBar) elements.btnPlayBar.setAttribute('aria-label', '再生');
+        }
+    }
+
 
     // ==========================================================================
     // Playlist Functions
@@ -3699,65 +3930,63 @@
         }
 
         // --- Drawing Logic ---
-                // --- Drawing Logic ---
-                canvasCtx.clearRect(0, 0, width, height);
+        canvasCtx.clearRect(0, 0, width, height);
 
-// Get colors safely with fallbacks
-const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#8e24aa'; // Fallback purple
-const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim() || '#5e35b1'; // Fallback darker purple
+        // Get colors safely with fallbacks
+        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#8e24aa'; // Fallback purple
+        const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim() || '#5e35b1'; // Fallback darker purple
 
-const gradient = canvasCtx.createLinearGradient(0, 0, 0, height); // Gradient covers full height
-gradient.addColorStop(0, primaryColor);
-gradient.addColorStop(1, secondaryColor);
-canvasCtx.fillStyle = gradient;
+        const gradient = canvasCtx.createLinearGradient(0, 0, 0, height); // Gradient covers full height
+        gradient.addColorStop(0, primaryColor);
+        gradient.addColorStop(1, secondaryColor);
+        canvasCtx.fillStyle = gradient;
 
-const barWidthRatio = 0.7; // Make bars slightly narrower relative to space
-const spacingRatio = 0.4; // Increase spacing relative to bar width
-const totalBarWidth = width / bufferLength; // Max space per bar
-const barWidth = Math.max(1, totalBarWidth * barWidthRatio); // Actual bar width
-const spacing = Math.max(1, totalBarWidth * spacingRatio); // Spacing between bars
-const totalBarAndSpaceWidth = barWidth + spacing; // Width occupied by one bar + space
+        const barWidthRatio = 0.7; // Make bars slightly narrower relative to space
+        const spacingRatio = 0.4; // Increase spacing relative to bar width
+        const totalBarWidth = width / bufferLength; // Max space per bar
+        const barWidth = Math.max(1, totalBarWidth * barWidthRatio); // Actual bar width
+        const spacing = Math.max(1, totalBarWidth * spacingRatio); // Spacing between bars
+        const totalBarAndSpaceWidth = barWidth + spacing; // Width occupied by one bar + space
 
-// Calculate how many bars actually fit BEFORE calculating offset
-const numBarsThatFit = totalBarAndSpaceWidth > 0 ? Math.floor((width + spacing) / totalBarAndSpaceWidth) : 0; // Avoid division by zero
-const actualBufferLength = Math.min(bufferLength, numBarsThatFit);
+        // Calculate how many bars actually fit BEFORE calculating offset
+        const numBarsThatFit = totalBarAndSpaceWidth > 0 ? Math.floor((width + spacing) / totalBarAndSpaceWidth) : 0; // Avoid division by zero
+        const actualBufferLength = Math.min(bufferLength, numBarsThatFit);
 
-// Adjust offset to center bars properly (use actualBufferLength now)
-const totalDrawingWidth = actualBufferLength * totalBarAndSpaceWidth - (actualBufferLength > 0 ? spacing : 0); // Subtract last spacing only if bars exist
-const offsetX = Math.max(0, (width - totalDrawingWidth) / 2); // Center the bars
+        // Adjust offset to center bars properly (use actualBufferLength now)
+        const totalDrawingWidth = actualBufferLength * totalBarAndSpaceWidth - (actualBufferLength > 0 ? spacing : 0); // Subtract last spacing only if bars exist
+        const offsetX = Math.max(0, (width - totalDrawingWidth) / 2); // Center the bars
 
-let x = offsetX;
+        let x = offsetX;
 
-for (let i = 0; i < actualBufferLength; i++) { // <<< Use the pre-calculated actualBufferLength
-    // Scale bar height, ensure minimum height for visibility when active
-    const rawHeight = (dataArray[i] / 255) * height * 0.95; // Scale height (95% of canvas height max)
-    const barHeight = Math.max(1, rawHeight); // Ensure at least 1px height if data > 0
-    const borderRadius = Math.min(3, barWidth / 3); // Smaller radius
+        for (let i = 0; i < actualBufferLength; i++) { // <<< Use the pre-calculated actualBufferLength
+            // Scale bar height, ensure minimum height for visibility when active
+            const rawHeight = (dataArray[i] / 255) * height * 0.95; // Scale height (95% of canvas height max)
+            const barHeight = Math.max(1, rawHeight); // Ensure at least 1px height if data > 0
+            const borderRadius = Math.min(3, barWidth / 3); // Smaller radius
 
-    // Draw rounded rectangle (Simplified drawing for potentially better performance)
-    canvasCtx.beginPath();
-     // Use Math.round for potentially sharper pixels
-     const startX = Math.round(x);
-     const startY = Math.round(height);
-     const endX = Math.round(x + barWidth);
-     const endY = Math.round(height - barHeight); // Top Y coordinate
+            // Draw rounded rectangle (Simplified drawing for potentially better performance)
+            canvasCtx.beginPath();
+             // Use Math.round for potentially sharper pixels
+             const startX = Math.round(x);
+             const startY = Math.round(height);
+             const endX = Math.round(x + barWidth);
+             const endY = Math.round(height - barHeight); // Top Y coordinate
 
-     // No need for complex arcs if borderRadius is small, rect is often sufficient
-     if (barHeight > 1) { // Only draw if height is visible
-         canvasCtx.moveTo(startX, startY);
-         canvasCtx.lineTo(startX, endY + borderRadius); // To top-left radius point (approx)
-         // Simple rounded top using quadraticCurveTo (or just rect for performance)
-         canvasCtx.quadraticCurveTo(startX, endY, startX + borderRadius, endY);
-         canvasCtx.lineTo(endX - borderRadius, endY);
-         canvasCtx.quadraticCurveTo(endX, endY, endX, endY + borderRadius);
-         canvasCtx.lineTo(endX, startY);
-         // No need to close path explicitly with fill
-     }
-     canvasCtx.fill(); // Fill the path
+             // No need for complex arcs if borderRadius is small, rect is often sufficient
+             if (barHeight > 1) { // Only draw if height is visible
+                 canvasCtx.moveTo(startX, startY);
+                 canvasCtx.lineTo(startX, endY + borderRadius); // To top-left radius point (approx)
+                 // Simple rounded top using quadraticCurveTo (or just rect for performance)
+                 canvasCtx.quadraticCurveTo(startX, endY, startX + borderRadius, endY);
+                 canvasCtx.lineTo(endX - borderRadius, endY);
+                 canvasCtx.quadraticCurveTo(endX, endY, endX, endY + borderRadius);
+                 canvasCtx.lineTo(endX, startY);
+                 // No need to close path explicitly with fill
+             }
+             canvasCtx.fill(); // Fill the path
 
-    x += totalBarAndSpaceWidth;
-}
-// --- End Drawing Logic ---
+            x += totalBarAndSpaceWidth;
+        }
         // --- End Drawing Logic ---
 
         // --- Schedule Next Frame ---
@@ -4115,286 +4344,25 @@ for (let i = 0; i < actualBufferLength; i++) { // <<< Use the pre-calculated act
 
 
     // ==========================================================================
-    // Offline Playback Functionality (Service Worker based)
+    // Offline Playback Functionality (Service Worker based) - COMMENTED OUT or Use Actual Implementation
     // ==========================================================================
+    /* // Remove this line if you have a working service-worker.js
     const offlinePlayback = {
-      isSWRegistered: false, // Track registration status
-
-      async registerServiceWorker() {
-            if ('serviceWorker' in navigator) {
-              try {
-                // Register with scope limited to this project's path
-                const registration = await navigator.serviceWorker.register('./service-worker.js', { scope: '/ReiKikuchi/' }); // <<< scope をリポジトリ名に合わせたパスに変更
-                console.log('Service Worker registered successfully:', registration.scope);
-                this.isSWRegistered = true;
-                // Listen for controller changes
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                     console.log('Service Worker: Controller changed.');
-                     // Optionally reload or notify user?
-                     // window.location.reload(); // Can be disruptive
-                });
-                 // Listen for messages from SW (e.g., cache updates)
-                 navigator.serviceWorker.addEventListener('message', event => {
-                      console.log('Message from SW:', event.data);
-                      if (event.data && event.data.type === 'CACHE_COMPLETE') {
-                          showSnackbar(`キャッシュ完了: ${event.data.count}個のリソース`);
-                      }
-                      if (event.data && event.data.type === 'CACHE_ERROR') {
-                           showSnackbar(`キャッシュエラー: ${event.data.message}`);
-                       }
-                      // Add more message types if needed
-                 });
-                return registration;
-              } catch (error) {
-                console.error('Service Worker registration failed:', error);
-                this.isSWRegistered = false;
-                // Provide a more informative error message to the user
-                showSnackbar('オフライン機能の初期化に失敗しました。');
-                return null;
-              }
-            } else {
-              console.warn('Service Worker is not supported in this browser.');
-              showSnackbar('お使いのブラウザはオフライン機能をサポートしていません。'); // Inform user
-              this.isSWRegistered = false;
-              return null;
+        // ... (Keep the offlinePlayback object definition here if using service worker) ...
+        // Make sure registerServiceWorker uses the correct scope: { scope: '/ReiKikuchi/' }
+        async init() {
+            console.log('Initializing Offline Playback module...');
+            const registration = await this.registerServiceWorker(); // Wait for registration attempt
+            this.setupOfflineDetection();
+             // Add UI elements only if SW registration was potentially successful or supported
+            if (registration || 'serviceWorker' in navigator) {
+                // Delay UI setup slightly to ensure elements are definitely ready
+                setTimeout(() => this.addOfflineUI(), 100);
             }
-          },
-
-      setupOfflineDetection() {
-        const updateStatus = () => {
-            const isOffline = !navigator.onLine;
-            if(elements.body) elements.body.classList.toggle('offline-mode', isOffline);
-
-            let statusElement = document.getElementById('offline-status');
-            if (!statusElement && elements.body) { // Create if doesn't exist
-                statusElement = document.createElement('div');
-                statusElement.id = 'offline-status';
-                // Improved styling: Less intrusive, better dark mode support
-                statusElement.className = 'fixed top-0 left-1/2 transform -translate-x-1/2 mt-2 px-4 py-1 rounded-full text-white text-xs shadow transition-opacity duration-300 opacity-0 pointer-events-none';
-                statusElement.style.backgroundColor = 'var(--accent-color)';
-                statusElement.style.zIndex = '9999';
-                elements.body.prepend(statusElement);
-            }
-
-            if (statusElement) {
-                 statusElement.style.opacity = isOffline ? '1' : '0';
-                 statusElement.textContent = isOffline ? 'オフラインモード' : '';
-                 statusElement.style.pointerEvents = isOffline ? 'auto' : 'none';
-            }
-
-             // Show snackbar only on change, and avoid on initial load if online
-             if(typeof this.wasOffline === 'undefined') {
-                this.wasOffline = isOffline; // Set initial state
-                // Don't show snackbar on initial load regardless of state
-             } else if (this.wasOffline !== isOffline) {
-                 if (isOffline) {
-                    showSnackbar('オフラインです。キャッシュされたコンテンツのみ利用可能です。');
-                 } else {
-                    showSnackbar('オンラインに戻りました。');
-                 }
-                 this.wasOffline = isOffline;
-             }
-        };
-        updateStatus(); // Initial check
-        window.addEventListener('online', updateStatus);
-        window.addEventListener('offline', updateStatus);
-      },
-
-      sendMessageToSW(message) {
-          // Send message to the active service worker
-          return new Promise((resolve, reject) => {
-              if (!navigator.serviceWorker.controller) {
-                   // Try waiting a bit for the controller to become active, especially after registration
-                   console.warn("SW Controller not ready, waiting 500ms...");
-                   setTimeout(() => {
-                       if(navigator.serviceWorker.controller) {
-                           console.log("SW Controller now ready, retrying message.");
-                           this.sendMessageToSW(message).then(resolve).catch(reject); // Retry
-                       } else {
-                          console.error("SW Controller still not available after delay.");
-                          reject('Service Worker controller not available.');
-                       }
-                   }, 500);
-                   return;
-              }
-
-              const messageChannel = new MessageChannel();
-              messageChannel.port1.onmessage = function(event) {
-                  if (event.data && event.data.error) { // Check for error property
-                      console.error("Error message from SW:", event.data.error);
-                      reject(event.data.error);
-                  } else {
-                      resolve(event.data); // Resolve with the response from SW
-                  }
-              };
-              messageChannel.port1.onmessageerror = function(event) {
-                  console.error("Message error on port1:", event);
-                  reject('Message channel error');
-              };
-
-              // Send message with the MessageChannel port
-              navigator.serviceWorker.controller.postMessage(message, [messageChannel.port2]);
-          });
-      },
-
-
-      async cacheUrls(urls) {
-          if (!this.isSWRegistered) {
-              showSnackbar("オフライン機能の準備ができていません。");
-              return;
-          }
-           if (!navigator.onLine) {
-               showSnackbar("オフラインのためキャッシュできません。");
-               return;
-           }
-          if (!urls || urls.length === 0) return;
-
-          const uniqueUrls = [...new Set(urls)].filter(url => url); // Remove duplicates and invalid entries
-           if (uniqueUrls.length === 0) {
-               showSnackbar("キャッシュする有効なURLがありません。");
-               return;
-           }
-
-
-          showSnackbar(`${uniqueUrls.length} 個のリソースをキャッシュ中...`);
-          try {
-              // Send message and wait for response (e.g., confirmation or error)
-              const response = await this.sendMessageToSW({ type: 'CACHE_URLS', urls: uniqueUrls });
-              console.log('Response from SW for CACHE_URLS:', response);
-              // Success/Error message is now handled by the global listener in registerServiceWorker
-          } catch (error) {
-              console.error('Failed to send cache message to SW or received error:', error);
-              showSnackbar("リソースのキャッシュ要求に失敗しました。");
-          }
-      },
-
-      cacheCurrentSong() {
-        const currentSong = currentSongData(); // Use helper
-        if (!currentSong) {
-            showSnackbar("キャッシュする曲が選択されていません。");
-            return;
-        }
-        if (!currentSong.id || !currentSong.thumbnail) {
-             showSnackbar("曲の情報が不完全なためキャッシュできません。");
-             return;
-        }
-        showSnackbar(`「${escapeHTML(currentSong.title)}」のサムネイルをキャッシュ中...`);
-        this.cacheUrls([currentSong.thumbnail]); // Cache only the thumbnail
-      },
-
-      cacheFavoriteSongs() {
-        if (appState.favorites.length === 0) {
-             showSnackbar("お気に入りに曲がありません。");
-             return;
-        }
-        const urlsToCache = appState.favorites
-            .map(fav => fav?.thumbnail) // Get thumbnail URL
-            .filter(url => url); // Filter out invalid URLs
-        if (urlsToCache.length > 0) {
-            this.cacheUrls(urlsToCache);
-        } else {
-             showSnackbar("キャッシュできるお気に入り情報がありません。");
-        }
-      },
-
-      async clearCache() {
-           if (!this.isSWRegistered) {
-               showSnackbar("オフライン機能の準備ができていません。");
-               return;
-           }
-           if(confirm("すべてのオフラインキャッシュを削除しますか？ (基本アセットを除く)")) {
-               showSnackbar("キャッシュをクリア中...");
-               try {
-                  // Assuming SW 'CLEAR_CACHE' clears the dynamic cache ('runtime-cache')
-                  const response = await this.sendMessageToSW({ type: 'CLEAR_CACHE' });
-                  console.log("Response from SW for CLEAR_CACHE:", response);
-                  showSnackbar('ダイナミックキャッシュをクリアしました。');
-                  // Optionally trigger re-render if UI depends on cached status?
-               } catch(error) {
-                   console.error("Failed to clear cache via SW:", error);
-                   showSnackbar("キャッシュのクリアに失敗しました。");
-               }
-           }
-      },
-
-       // Method to show the dynamically created offline modal
-      showOfflineModal() {
-          const modal = elements.modals.offline;
-          if (modal) {
-              showModal('offline'); // Use the standard showModal function
-          } else {
-              console.error("Offline modal element not found.");
-              showSnackbar("オフライン管理を開けませんでした。");
-          }
-      },
-
-
-      addOfflineUI() {
-        // Check if the button already exists in the cached elements
-        if (elements.offlineMenuBtn) {
-          elements.offlineMenuBtn.classList.remove('hidden'); // Show the button
-           // Add event listener if not already added (e.g., if init runs multiple times)
-           if (!elements.offlineMenuBtn._hasClickListener) {
-                elements.offlineMenuBtn.addEventListener('click', () => this.showOfflineModal());
-                elements.offlineMenuBtn._hasClickListener = true;
-           }
-          console.log("Offline UI button revealed.");
-        } else {
-          console.warn("Could not find offline menu button in header to reveal.");
-        }
-
-        // Ensure the offline modal container exists
-        const offlineModalContainer = elements.modals.offline;
-        if (!offlineModalContainer) {
-             console.error("Offline modal container (#offline-modal) not found in HTML.");
-             return; // Cannot proceed without the container
-        }
-        // Find the content div within the modal
-        const modalContentContainer = offlineModalContainer.querySelector('.modal-content');
-         if (modalContentContainer && !modalContentContainer._isSetup) {
-             modalContentContainer.innerHTML = `
-                 <div class="flex justify-between items-center mb-4">
-                   <h2 id="offline-modal-title" class="text-xl font-bold">オフラインキャッシュ</h2>
-                   <button class="modal-close-btn close-modal-btn text-2xl leading-none focusable" data-modal-id="offline" aria-label="閉じる">&times;</button>
-                 </div>
-                 <p class="mb-4 text-sm">サムネイル画像をキャッシュしてオフライン表示を高速化します。（動画自体のオフライン再生はできません）</p>
-                 <div class="flex flex-col gap-3">
-                   <button id="cache-current-btn" class="px-4 py-2 rounded focusable w-full text-left" style="background-color: var(--primary-color); color: white;">
-                     <i class="fas fa-music mr-2"></i>現在の曲のサムネイルをキャッシュ
-                   </button>
-                   <button id="cache-favorites-btn" class="px-4 py-2 rounded focusable w-full text-left" style="background-color: var(--primary-color); color: white;">
-                     <i class="fas fa-heart mr-2"></i>お気に入りのサムネイルをキャッシュ
-                   </button>
-                   <button id="clear-cache-btn" class="px-4 py-2 rounded focusable w-full text-left mt-4" style="background-color: var(--accent-color); color: white;">
-                     <i class="fas fa-trash mr-2"></i>全キャッシュをクリア
-                   </button>
-                 </div>
-               `;
-             // Add event listeners for the new modal's buttons
-             // Close button listener is handled globally by '.close-modal-btn'
-             modalContentContainer.querySelector('#cache-current-btn')?.addEventListener('click', () => this.cacheCurrentSong());
-             modalContentContainer.querySelector('#cache-favorites-btn')?.addEventListener('click', () => this.cacheFavoriteSongs());
-             modalContentContainer.querySelector('#clear-cache-btn')?.addEventListener('click', () => this.clearCache());
-             modalContentContainer._isSetup = true; // Mark as setup to prevent re-adding listeners
-             console.log("Offline modal content setup.");
-         } else if (!modalContentContainer) {
-             console.error("Could not find .modal-content inside #offline-modal.");
+            console.log('Offline Playback module initialization complete.');
          }
-
-      },
-
-      async init() {
-        console.log('Initializing Offline Playback module...');
-        await this.registerServiceWorker(); // Wait for registration attempt
-        this.setupOfflineDetection();
-        // Add UI elements only if SW is potentially active or supported
-        if ('serviceWorker' in navigator) {
-            // Delay UI setup slightly to ensure elements are definitely ready
-            setTimeout(() => this.addOfflineUI(), 100);
-        }
-        console.log('Offline Playback module initialization complete.');
-      }
     };
+    */ // Remove this line if you have a working service-worker.js
 
 
     // ==========================================================================
