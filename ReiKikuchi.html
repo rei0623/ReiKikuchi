@@ -3699,61 +3699,65 @@
         }
 
         // --- Drawing Logic ---
-        canvasCtx.clearRect(0, 0, width, height);
+                // --- Drawing Logic ---
+                canvasCtx.clearRect(0, 0, width, height);
 
-        // Get colors safely with fallbacks
-        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#8e24aa'; // Fallback purple
-        const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim() || '#5e35b1'; // Fallback darker purple
+// Get colors safely with fallbacks
+const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#8e24aa'; // Fallback purple
+const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim() || '#5e35b1'; // Fallback darker purple
 
-        const gradient = canvasCtx.createLinearGradient(0, 0, 0, height); // Gradient covers full height
-        gradient.addColorStop(0, primaryColor);
-        gradient.addColorStop(1, secondaryColor);
-        canvasCtx.fillStyle = gradient;
+const gradient = canvasCtx.createLinearGradient(0, 0, 0, height); // Gradient covers full height
+gradient.addColorStop(0, primaryColor);
+gradient.addColorStop(1, secondaryColor);
+canvasCtx.fillStyle = gradient;
 
-        const barWidthRatio = 0.7; // Make bars slightly narrower relative to space
-        const spacingRatio = 0.4; // Increase spacing relative to bar width
-        const totalBarWidth = width / bufferLength; // Max space per bar
-        const barWidth = Math.max(1, totalBarWidth * barWidthRatio); // Actual bar width
-        const spacing = Math.max(1, totalBarWidth * spacingRatio); // Spacing between bars
-        const totalBarAndSpaceWidth = barWidth + spacing; // Width occupied by one bar + space
-        // Adjust offset to center bars properly
-        const totalDrawingWidth = actualBufferLength * totalBarAndSpaceWidth - spacing; // Total width of drawn elements
-        const offsetX = Math.max(0, (width - totalDrawingWidth) / 2); // Center the bars
+const barWidthRatio = 0.7; // Make bars slightly narrower relative to space
+const spacingRatio = 0.4; // Increase spacing relative to bar width
+const totalBarWidth = width / bufferLength; // Max space per bar
+const barWidth = Math.max(1, totalBarWidth * barWidthRatio); // Actual bar width
+const spacing = Math.max(1, totalBarWidth * spacingRatio); // Spacing between bars
+const totalBarAndSpaceWidth = barWidth + spacing; // Width occupied by one bar + space
 
-        let x = offsetX;
-        // Loop only through the number of bars that actually fit
-        const numBarsThatFit = Math.floor((width + spacing) / totalBarAndSpaceWidth);
-        const actualBufferLength = Math.min(bufferLength, numBarsThatFit);
+// Calculate how many bars actually fit BEFORE calculating offset
+const numBarsThatFit = totalBarAndSpaceWidth > 0 ? Math.floor((width + spacing) / totalBarAndSpaceWidth) : 0; // Avoid division by zero
+const actualBufferLength = Math.min(bufferLength, numBarsThatFit);
 
-        for (let i = 0; i < actualBufferLength; i++) {
-            // Scale bar height, ensure minimum height for visibility when active
-            const rawHeight = (dataArray[i] / 255) * height * 0.95; // Scale height (95% of canvas height max)
-            const barHeight = Math.max(1, rawHeight); // Ensure at least 1px height if data > 0
-            const borderRadius = Math.min(3, barWidth / 3); // Smaller radius
+// Adjust offset to center bars properly (use actualBufferLength now)
+const totalDrawingWidth = actualBufferLength * totalBarAndSpaceWidth - (actualBufferLength > 0 ? spacing : 0); // Subtract last spacing only if bars exist
+const offsetX = Math.max(0, (width - totalDrawingWidth) / 2); // Center the bars
 
-            // Draw rounded rectangle (Simplified drawing for potentially better performance)
-            canvasCtx.beginPath();
-             // Use Math.round for potentially sharper pixels
-             const startX = Math.round(x);
-             const startY = Math.round(height);
-             const endX = Math.round(x + barWidth);
-             const endY = Math.round(height - barHeight); // Top Y coordinate
+let x = offsetX;
 
-             // No need for complex arcs if borderRadius is small, rect is often sufficient
-             if (barHeight > 1) { // Only draw if height is visible
-                 canvasCtx.moveTo(startX, startY);
-                 canvasCtx.lineTo(startX, endY + borderRadius); // To top-left radius point (approx)
-                 // Simple rounded top using quadraticCurveTo (or just rect for performance)
-                 canvasCtx.quadraticCurveTo(startX, endY, startX + borderRadius, endY);
-                 canvasCtx.lineTo(endX - borderRadius, endY);
-                 canvasCtx.quadraticCurveTo(endX, endY, endX, endY + borderRadius);
-                 canvasCtx.lineTo(endX, startY);
-                 // No need to close path explicitly with fill
-             }
-             canvasCtx.fill(); // Fill the path
+for (let i = 0; i < actualBufferLength; i++) { // <<< Use the pre-calculated actualBufferLength
+    // Scale bar height, ensure minimum height for visibility when active
+    const rawHeight = (dataArray[i] / 255) * height * 0.95; // Scale height (95% of canvas height max)
+    const barHeight = Math.max(1, rawHeight); // Ensure at least 1px height if data > 0
+    const borderRadius = Math.min(3, barWidth / 3); // Smaller radius
 
-            x += totalBarAndSpaceWidth;
-        }
+    // Draw rounded rectangle (Simplified drawing for potentially better performance)
+    canvasCtx.beginPath();
+     // Use Math.round for potentially sharper pixels
+     const startX = Math.round(x);
+     const startY = Math.round(height);
+     const endX = Math.round(x + barWidth);
+     const endY = Math.round(height - barHeight); // Top Y coordinate
+
+     // No need for complex arcs if borderRadius is small, rect is often sufficient
+     if (barHeight > 1) { // Only draw if height is visible
+         canvasCtx.moveTo(startX, startY);
+         canvasCtx.lineTo(startX, endY + borderRadius); // To top-left radius point (approx)
+         // Simple rounded top using quadraticCurveTo (or just rect for performance)
+         canvasCtx.quadraticCurveTo(startX, endY, startX + borderRadius, endY);
+         canvasCtx.lineTo(endX - borderRadius, endY);
+         canvasCtx.quadraticCurveTo(endX, endY, endX, endY + borderRadius);
+         canvasCtx.lineTo(endX, startY);
+         // No need to close path explicitly with fill
+     }
+     canvasCtx.fill(); // Fill the path
+
+    x += totalBarAndSpaceWidth;
+}
+// --- End Drawing Logic ---
         // --- End Drawing Logic ---
 
         // --- Schedule Next Frame ---
