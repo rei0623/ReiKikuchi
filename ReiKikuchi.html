@@ -4121,42 +4121,44 @@ for (let i = 0; i < actualBufferLength; i++) { // <<< Use the pre-calculated act
       isSWRegistered: false, // Track registration status
 
       async registerServiceWorker() {
-        if ('serviceWorker' in navigator) {
-          try {
-            // Register with scope '/' to control the whole origin
-            // Ensure service-worker.js is in the root directory or adjust path
-            const registration = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
-            console.log('Service Worker registered successfully:', registration.scope);
-            this.isSWRegistered = true;
-            // Listen for controller changes
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                 console.log('Service Worker: Controller changed.');
-                 // Optionally reload or notify user?
-                 // window.location.reload(); // Can be disruptive
-            });
-             // Listen for messages from SW (e.g., cache updates)
-             navigator.serviceWorker.addEventListener('message', event => {
-                  console.log('Message from SW:', event.data);
-                  if (event.data && event.data.type === 'CACHE_COMPLETE') {
-                      showSnackbar(`キャッシュ完了: ${event.data.count}個のリソース`);
-                  }
-                  if (event.data && event.data.type === 'CACHE_ERROR') {
-                       showSnackbar(`キャッシュエラー: ${event.data.message}`);
-                   }
-                  // Add more message types if needed
-             });
-            return registration;
-          } catch (error) {
-            console.error('Service Worker registration failed:', error);
-            this.isSWRegistered = false;
-            return null;
-          }
-        } else {
-          console.warn('Service Worker is not supported in this browser.');
-          this.isSWRegistered = false;
-          return null;
-        }
-      },
+            if ('serviceWorker' in navigator) {
+              try {
+                // Register with scope limited to this project's path
+                const registration = await navigator.serviceWorker.register('./service-worker.js', { scope: '/ReiKikuchi/' }); // <<< scope をリポジトリ名に合わせたパスに変更
+                console.log('Service Worker registered successfully:', registration.scope);
+                this.isSWRegistered = true;
+                // Listen for controller changes
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                     console.log('Service Worker: Controller changed.');
+                     // Optionally reload or notify user?
+                     // window.location.reload(); // Can be disruptive
+                });
+                 // Listen for messages from SW (e.g., cache updates)
+                 navigator.serviceWorker.addEventListener('message', event => {
+                      console.log('Message from SW:', event.data);
+                      if (event.data && event.data.type === 'CACHE_COMPLETE') {
+                          showSnackbar(`キャッシュ完了: ${event.data.count}個のリソース`);
+                      }
+                      if (event.data && event.data.type === 'CACHE_ERROR') {
+                           showSnackbar(`キャッシュエラー: ${event.data.message}`);
+                       }
+                      // Add more message types if needed
+                 });
+                return registration;
+              } catch (error) {
+                console.error('Service Worker registration failed:', error);
+                this.isSWRegistered = false;
+                // Provide a more informative error message to the user
+                showSnackbar('オフライン機能の初期化に失敗しました。');
+                return null;
+              }
+            } else {
+              console.warn('Service Worker is not supported in this browser.');
+              showSnackbar('お使いのブラウザはオフライン機能をサポートしていません。'); // Inform user
+              this.isSWRegistered = false;
+              return null;
+            }
+          },
 
       setupOfflineDetection() {
         const updateStatus = () => {
