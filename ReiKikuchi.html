@@ -162,6 +162,107 @@
         font-size: 0.8rem;
       }
 
+          /* === Interaction Enhancements === */
+
+    /* --- General Button Transitions --- */
+    .btn-mode, .btn-control, .tab-button,
+    .focusable, /* Apply smooth focus outline */
+    #create-playlist-btn, #save-playlist-btn,
+    #login-btn, #show-register-btn, #register-btn, #show-login-btn,
+    #sync-data-btn, #logout-btn,
+    #share-btn, #open-youtube-btn, #youtube-sync-btn, /* Sync btn added by JS */
+    .share-option, #copy-link-btn,
+    #remove-from-playlist-btn, #share-playlist-btn,
+    .playlist-edit-btn, .playlist-delete-btn,
+    /* Add Now Playing Bar buttons */
+    #btn-prev-bar, #btn-play-bar, #btn-next-bar
+    {
+      transition: all 0.2s ease-in-out; /* Smooth transitions for various properties */
+    }
+
+    /* --- Button Hover & Active States --- */
+    .btn-mode:hover, .btn-control:hover,
+    #create-playlist-btn:hover, #save-playlist-btn:hover,
+    #login-btn:hover, #show-register-btn:hover, #register-btn:hover, #show-login-btn:hover,
+    #sync-data-btn:hover, #logout-btn:hover,
+    #share-btn:not(:disabled):hover, #open-youtube-btn:not(:disabled):hover, #youtube-sync-btn:hover,
+    .share-option:hover, #copy-link-btn:hover,
+    #remove-from-playlist-btn:hover, #share-playlist-btn:hover,
+    .playlist-edit-btn:hover, .playlist-delete-btn:hover,
+    #btn-prev-bar:hover, #btn-play-bar:hover, #btn-next-bar:hover
+     {
+      transform: scale(1.08); /* Slightly enlarge on hover */
+      opacity: 0.9; /* Optional: slight transparency */
+    }
+
+    .btn-mode:active, .btn-control:active,
+    #create-playlist-btn:active, #save-playlist-btn:active,
+    #login-btn:active, #show-register-btn:active, #register-btn:active, #show-login-btn:active,
+    #sync-data-btn:active, #logout-btn:active,
+    #share-btn:not(:disabled):active, #open-youtube-btn:not(:disabled):active, #youtube-sync-btn:active,
+    .share-option:active, #copy-link-btn:active,
+    #remove-from-playlist-btn:active, #share-playlist-btn:active,
+     .playlist-edit-btn:active, .playlist-delete-btn:active,
+     #btn-prev-bar:active, #btn-play-bar:active, #btn-next-bar:active
+     {
+      transform: scale(0.95); /* Slightly shrink on active/click */
+      opacity: 1;
+    }
+
+    /* --- List Item Transitions & Hover --- */
+    .playlist-item, .history-item, .favorite-item, .user-playlist-item {
+      transition: background-color 0.2s ease-in-out, transform 0.2s ease-in-out, border-color 0.2s ease-in-out;
+      border-left-width: 3px; /* Ensure space for border */
+      border-left-color: transparent; /* Start transparent */
+    }
+
+    .playlist-item:hover, .history-item:hover, .favorite-item:hover, .user-playlist-item:hover {
+      background-color: rgba(142, 36, 170, 0.08); /* Slightly darker hover */
+      transform: translateY(-2px); /* Lift effect */
+      /* border-left-color: var(--primary-color); */ /* Optional: Show border on hover */
+    }
+     .dark .playlist-item:hover, .dark .history-item:hover, .dark .favorite-item:hover, .dark .user-playlist-item:hover {
+       background-color: rgba(187, 134, 252, 0.1); /* Dark mode hover */
+     }
+
+    .playlist-item.active, .history-item.active, .favorite-item.active {
+       border-left-color: var(--primary-color);
+       background-color: rgba(142, 36, 170, 0.15); /* Slightly darker active */
+       transform: translateY(0); /* Reset transform for active item */
+    }
+    .dark .playlist-item.active, .dark .history-item.active, .dark .favorite-item.active {
+        background-color: rgba(187, 134, 252, 0.2); /* Dark mode active */
+     }
+
+
+    /* --- Tab Button Hover --- */
+    .tab-button { /* Assuming tabs have .tab-button class or just use .tab */
+      position: relative;
+      transition: color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+      border-bottom: 2px solid transparent;
+    }
+     /* Add hover color change */
+     .tab:hover:not(.active) { /* Apply hover effect only to non-active tabs */
+        color: var(--primary-color);
+        opacity: 0.8;
+     }
+
+    /* --- Favorite Button Animation --- */
+    @keyframes favoritePulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); }
+    }
+
+    .favorite-btn.pulsing i {
+      animation: favoritePulse 0.3s ease-in-out forwards;
+    }
+    /* Ensure the heart icon itself transitions color smoothly */
+    .favorite-btn i {
+        transition: color 0.2s ease-in-out;
+    }
+
+    /* === End Interaction Enhancements === */
       /* タッチ操作の最適化 */
       .btn-mode, .btn-control, .tab-button, .song-item, .heart-btn {
         min-height: 44px; /* タッチターゲットの最小サイズ */
@@ -3619,6 +3720,17 @@
             return;
         }
 
+        // === Animation Trigger ===
+        const favoriteButtons = document.querySelectorAll(`.favorite-btn[data-id="${songId}"]`);
+        favoriteButtons.forEach(button => {
+            button.classList.add('pulsing');
+            // Remove class after animation finishes (match CSS duration)
+            setTimeout(() => {
+                button.classList.remove('pulsing');
+            }, 300); // 300ms matches the animation duration
+        });
+        // =========================
+
         if (songIndexInFavorites > -1) {
             appState.favorites.splice(songIndexInFavorites, 1); // Remove
             showSnackbar(`「${escapeHTML(song.title)}」をお気に入りから削除しました`);
@@ -3629,18 +3741,25 @@
         saveToLocalStorage('reiKikuchiPlayerFavorites', appState.favorites);
 
         // Update UI (buttons in all lists and potentially the detail modal)
-        updateFavoriteButtonsUI(songId); // Update all fav buttons for this song
-        renderFavoritesList(); // Re-render the favorites tab content
-         // Also re-render other lists as they contain favorite buttons
-        // renderPlaylist(); // Avoid full re-render if only icon changes
-        // renderHistoryList();
-        // Re-render detail modal if open and relevant
+        // Delay UI update slightly to let color change after pulse animation starts
+        setTimeout(() => {
+             updateFavoriteButtonsUI(songId); // Update all fav buttons for this song
+             renderFavoritesList(); // Re-render the favorites tab content if the item is removed/added
+        }, 50); // Short delay
+
+
+         // Re-render detail modal if open and relevant
         if (appState.currentSelectedPlaylistId && elements.modals.playlistDetail?.classList.contains('show')) {
              const playlist = appState.userPlaylists.find(p => p.id === appState.currentSelectedPlaylistId);
-             if(playlist && playlist.songs.includes(songId)) {
-                  renderPlaylistDetail(playlist); // Re-render needed if content changes
+             // Check if the song *was* in the playlist before potential removal/re-render
+             const songIsInDisplayedPlaylist = playlist?.songs.includes(songId) || (songIndexInFavorites > -1 && playlist?.songs.includes(songId));
+             if(playlist && songIsInDisplayedPlaylist) {
+                 // Slight delay here too might be needed depending on render timing
+                 setTimeout(() => renderPlaylistDetail(playlist), 60);
              }
         }
+         // Note: Re-rendering the entire main playlist or history list just for an icon change
+         // might be inefficient. updateFavoriteButtonsUI handles the icon update directly.
     }
 
     // Helper to update only the favorite button icons for a specific song ID across all lists
