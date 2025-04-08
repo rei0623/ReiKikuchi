@@ -6,7 +6,7 @@ const CACHE_NAME = 'rei-kikuchi-player-cache-v1';
 // アプリケーションの基本的な骨格となるファイルを指定します。
 const PRECACHE_URLS = [
   './', // ルート（通常は index.html や test.html）
-  './test.html', // HTMLファイル自体
+  './ReiKikuchi.html', // HTMLファイル自体
   // './style.css', // もし外部CSSファイルがあれば追加
   // './app.js',    // もし外部JSファイルがあれば追加
   'https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css',
