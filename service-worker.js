@@ -1,21 +1,23 @@
 // service-worker.js
 
 // キャッシュの名前（バージョン管理に役立つ）
-const CACHE_NAME = 'rei-kikuchi-player-cache-v1';
+const CACHE_NAME = 'rei-kikuchi-player-cache-v2';
 // 最初にキャッシュするファイル（Precache）
 // アプリケーションの基本的な骨格となるファイルを指定します。
 const PRECACHE_URLS = [
-  './', // ルート（通常は index.html や test.html）
-  './ReiKikuchi.html', // HTMLファイル自体
-  // './style.css', // もし外部CSSファイルがあれば追加
-  // './app.js',    // もし外部JSファイルがあれば追加
-  'https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css',
-  'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap',
-  'https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLDz8Z1xlFd2JQEk.woff2', // Poppinsフォント (例)
-  'https://ka-f.fontawesome.com/releases/v6.0.0/webfonts/fa-solid-900.woff2' // FontAwesome (例)
-  // アプリに必要な他の重要な静的リソースを追加
-];
+    './', // ルート (ReiKikuchi.html を指すように Pages 設定されている想定)
+    './ReiKikuchi.html', // HTMLファイル自体 (ファイル名確認)
+    // CSS (これらは比較的小さく、コアな要素なのでキャッシュする)
+    'https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css',
+    'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css',
+    'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap',
+    // 必要であれば、自分で作成したCSSやJSファイルを追加
+    // './css/style.css',
+    // './js/app.js'
+  
+    // --- .woff2 ファイルは削除 ---
+    // フォントファイルは fetch イベントでのランタイムキャッシュに任せる
+  ];
 // 動的にキャッシュする対象のキャッシュ名（サムネイルなど）
 const RUNTIME_CACHE_NAME = 'runtime-cache';
 
