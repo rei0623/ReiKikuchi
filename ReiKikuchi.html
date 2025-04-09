@@ -1333,7 +1333,77 @@
      }
 
     /* === End Context Menu Styles === */
+    /* === Queue List Styles === */
+    .queue-item {
+      /* Reuse playlist-item styles or create specific ones */
+      /* Example: slightly different padding or background? */
+      padding: 8px 10px; /* Adjust padding */
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-color); /* Separator */
+      transition: background-color 0.2s ease-in-out;
+    }
+    .queue-item:last-child {
+        border-bottom: none; /* No border for the last item */
+    }
 
+    .queue-item:hover {
+      background-color: rgba(142, 36, 170, 0.08);
+    }
+    .dark .queue-item:hover {
+      background-color: rgba(187, 134, 252, 0.1);
+    }
+
+    .queue-item.playing { /* Style for the currently playing item in the queue */
+        background-color: rgba(142, 36, 170, 0.15);
+        border-left: 3px solid var(--primary-color);
+        padding-left: 7px; /* Adjust padding for border */
+    }
+    .dark .queue-item.playing {
+         background-color: rgba(187, 134, 252, 0.2);
+     }
+
+    .queue-item-info {
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        flex-grow: 1;
+        margin-right: 10px;
+    }
+    .queue-item-thumb {
+        width: 32px; /* Smaller thumbnail */
+        height: 32px;
+        border-radius: 4px;
+        margin-right: 10px;
+        flex-shrink: 0;
+        object-fit: cover;
+    }
+    .queue-item-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .queue-item-actions button {
+        color: var(--text-color);
+        opacity: 0.6;
+        padding: 4px;
+    }
+     .queue-item-actions button:hover {
+         opacity: 1;
+         color: var(--primary-color);
+     }
+
+     /* Queue Count Badge */
+     #queue-count-badge {
+         display: inline-block; /* Ensure it shows when not hidden */
+         vertical-align: middle;
+         line-height: 1;
+     }
+    /* === End Queue List Styles === */
   </style>
 </head>
 
@@ -1456,14 +1526,15 @@
                 </div>
             </div>
 
-            <!-- Playlist Section (Sidebar Column) -->
-            <div class="playlist-column flex flex-col"> <!-- Column layout for tabs and lists -->
-                <div class="tabs flex-shrink-0">
-                    <div class="tab active focusable" data-tab="playlist" role="tab" aria-selected="true" tabindex="0">プレイリスト</div>
-                    <div class="tab focusable" data-tab="history" role="tab" aria-selected="false" tabindex="0">再生履歴</div>
-                    <div class="tab focusable" data-tab="favorites" role="tab" aria-selected="false" tabindex="0">お気に入り</div>
-                    <div class="tab focusable" data-tab="user-playlists" role="tab" aria-selected="false" tabindex="0">マイプレイリスト</div>
-                </div>
+                        <!-- Playlist Section (Sidebar Column) -->
+                        <div class="playlist-column flex flex-col"> <!-- Column layout for tabs and lists -->
+                            <div class="tabs flex-shrink-0">
+                                <div class="tab active focusable" data-tab="playlist" role="tab" aria-selected="true" tabindex="0">プレイリスト</div>
+                                <div class="tab focusable" data-tab="history" role="tab" aria-selected="false" tabindex="0">再生履歴</div>
+                                <div class="tab focusable" data-tab="favorites" role="tab" aria-selected="false" tabindex="0">お気に入り</div>
+                                <div class="tab focusable" data-tab="user-playlists" role="tab" aria-selected="false" tabindex="0">マイプレイリスト</div>
+                                <div class="tab focusable" data-tab="queue" role="tab" aria-selected="false" tabindex="0">再生キュー <span id="queue-count-badge" class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hidden">0</span></div>
+                            </div>
 
                 <div id="playlist-tab" class="tab-content flex-grow" role="tabpanel">
                     <div class="playlist scrollable-list-area" id="playlist">
@@ -1506,7 +1577,22 @@
         </div> <!-- End music-player-grid -->
     </div> <!-- End music-player -->
 
-
+<!-- =========== Queue Tab Content =========== -->
+<div id="queue-tab" class="tab-content hidden flex-grow" role="tabpanel">
+    <div class="flex justify-between items-center mb-3 px-1 pt-1">
+         <h3 class="text-sm font-semibold">再生キュー</h3>
+         <button id="clear-queue-btn" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 focusable disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+             <i class="fas fa-trash mr-1"></i>すべてクリア
+         </button>
+    </div>
+    <div class="queue-list scrollable-list-area" id="queue-list">
+        <!-- Queue items will be rendered here by JS -->
+        <div class="text-center py-8 text-gray-500">
+            <p>キューは空です</p>
+        </div>
+    </div>
+</div>
+<!-- =========== End Queue Tab Content =========== -->
     <!-- Modal Dialogs -->
     <div id="create-playlist-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="create-playlist-modal-title">
       <div class="modal-content">
@@ -1771,6 +1857,11 @@
       activeModalId: null, // Track the currently open modal
       isPlayerReady: false,
       isBarVisible: false, // Track if the Now Playing Bar should be visible
+      // ... (existing states) ...
+      queue: [], // 曲IDの配列 (再生待ちリスト)
+      currentQueueIndex: -1, // キュー内での現在の再生位置 (-1 はキュー再生中でない)
+      playMode: 'playlist', // 'playlist' または 'queue'
+      // ... (visualizer, contextMenu states) ...
       visualizer: { // visualizer object start
           context: null,
           analyser: null,
@@ -2030,11 +2121,19 @@
 
         const isFavorite = appState.favorites.some(fav => fav && fav.id === song.id);
         const canAddToPlaylist = appState.loggedInUser && appState.userPlaylists.length > 0;
+        const isInQueue = appState.queue.includes(song.id); // Check if already in queue
 
         let itemsHTML = `
             <a href="#" class="context-menu-item focusable" data-action="play">
               <i class="fas fa-play w-4 mr-2 text-center"></i> 再生
             </a>
+            <a href="#" class="context-menu-item focusable" data-action="playNext">
+              <i class="fas fa-level-up-alt fa-rotate-90 w-4 mr-2 text-center"></i> 次に再生
+            </a>
+            <a href="#" class="context-menu-item focusable" data-action="addToQueue">
+              <i class="fas ${isInQueue ? 'fa-check' : 'fa-plus'} w-4 mr-2 text-center"></i> ${isInQueue ? 'キューに追加済み' : 'キューに追加'}
+            </a>
+            <div class="context-menu-separator"></div>
             <a href="#" class="context-menu-item focusable" data-action="toggleFavorite">
               <i class="fas fa-heart w-4 mr-2 text-center ${isFavorite ? 'text-red-500' : 'text-gray-400'}"></i> ${isFavorite ? 'お気に入り解除' : 'お気に入り登録'}
             </a>
@@ -2046,7 +2145,6 @@
              if (canAddToPlaylist) {
                   itemsHTML += `<div class="context-menu-item px-4 py-2 text-xs text-gray-500 dark:text-gray-400">プレイリストに追加:</div>`;
                   appState.userPlaylists.forEach(playlist => {
-                       // Check if song already exists in this playlist
                        const alreadyExists = playlist.songs?.includes(song.id);
                        itemsHTML += `
                        <a href="#" class="context-menu-item focusable ${alreadyExists ? 'opacity-50 italic' : ''}" data-action="addToPlaylist" data-playlist-id="${playlist.id}">
@@ -2074,9 +2172,77 @@
         return itemsHTML;
     }
 
+        // ==========================================================================
+    // Queue Functions
+    // ==========================================================================
+    function addToQueue(songId, playNext = false) {
+        if (!songId) return;
+        const song = findSongById(songId);
+        if (!song) {
+            showSnackbar("曲が見つかりません。");
+            return;
+        }
+
+        // Avoid duplicates? Optional, decide based on desired behavior.
+        // For now, allow duplicates. Remove this block to prevent them.
+        // if (appState.queue.includes(songId)) {
+        //     showSnackbar(`「${escapeHTML(song.title)}」は既にキューにあります。`);
+        //     return;
+        // }
+
+        if (playNext) {
+            // "次に再生" のロジック
+            if (appState.isPlaying || appState.currentQueueIndex !== -1) {
+                // 再生中またはキュー再生中の場合、現在の曲の直後に挿入
+                const insertIndex = appState.currentQueueIndex + 1;
+                appState.queue.splice(insertIndex, 0, songId);
+                 // もし現在プレイリストを再生中だったら、キュー再生モードに切り替える準備
+                 if (appState.playMode === 'playlist') {
+                    // 次の曲からキューを再生するようにインデックスを設定
+                    // (現在の曲が終わるか、Nextを押した時にキューから再生される)
+                    // Note: playMode は playNextSong などで実際にキュー再生が始まる時に 'queue' にする
+                 }
+                showSnackbar(`「${escapeHTML(song.title)}」を次に再生します`);
+            } else {
+                // 再生中でない場合、キューの先頭に追加
+                appState.queue.unshift(songId);
+                showSnackbar(`「${escapeHTML(song.title)}」をキューに追加しました`);
+            }
+        } else {
+            // 通常の "キューに追加" (末尾に追加)
+            appState.queue.push(songId);
+            showSnackbar(`「${escapeHTML(song.title)}」をキューに追加しました`);
+        }
+
+        console.log("Queue updated:", appState.queue);
+        // TODO: Update Queue UI when implemented
+        // renderQueueList();
+        // Update context menu immediately if it's open for the same song
+        if (appState.contextMenu.visible && appState.contextMenu.targetSongId === songId && elements.contextMenu) {
+             elements.contextMenu.innerHTML = generateContextMenuItems(song);
+        }
+    }
+
+    function clearQueue() {
+        appState.queue = [];
+        appState.currentQueueIndex = -1;
+        if (appState.playMode === 'queue') {
+            appState.playMode = 'playlist'; // 再生モードを戻す
+        }
+        console.log("Queue cleared.");
+        showSnackbar("キューをクリアしました");
+        // TODO: Update Queue UI
+        // renderQueueList();
+    }
+
+    // (removeFromQueue, playFromQueueなどの関数はフェーズ3で追加)
+
+    // ==========================================================================
+    // Context Menu Action Handler (Modified)
+    // ==========================================================================
     function handleContextMenuAction(event) {
         event.preventDefault();
-        event.stopPropagation(); // Prevent click from bubbling up further
+        event.stopPropagation();
 
         const target = event.target.closest('.context-menu-item');
         if (!target || !appState.contextMenu.targetSongId) {
@@ -2086,20 +2252,39 @@
 
         const action = target.dataset.action;
         const songId = appState.contextMenu.targetSongId;
-        const playlistId = target.dataset.playlistId; // For "addToPlaylist"
+        const playlistId = target.dataset.playlistId;
+        let shouldHideMenu = true; // Default to hiding
 
         console.log(`Context menu action: ${action}, Song ID: ${songId}, Playlist ID: ${playlistId}`);
-
-        // Close menu immediately before performing action (improves responsiveness)
-        const shouldHideMenu = true; // Default to hiding
 
         switch (action) {
             case 'play':
                 const originalIndex = findSongIndexById(songId);
-                if (originalIndex !== -1) playSong(originalIndex);
+                if (originalIndex !== -1) {
+                    // Playing a song directly should probably reset the queue context
+                    // appState.playMode = 'playlist'; // Or decide based on UX preference
+                    // appState.currentQueueIndex = -1;
+                    playSong(originalIndex);
+                }
+                break;
+            case 'playNext': // New action
+                addToQueue(songId, true);
+                break;
+            case 'addToQueue': // New action
+                addToQueue(songId, false);
+                // Don't hide menu immediately after adding to queue? Optional
+                shouldHideMenu = false;
+                 // Update menu item state immediately
+                 const song = findSongById(songId);
+                 if (song && elements.contextMenu) {
+                      elements.contextMenu.innerHTML = generateContextMenuItems(song);
+                      // Need to re-position slightly if content height changed? Less likely.
+                 }
                 break;
             case 'toggleFavorite':
                 toggleFavorite(songId);
+                // Keep menu open to see change?
+                shouldHideMenu = false;
                 break;
             case 'addToPlaylist':
                  if (playlistId) {
@@ -2108,13 +2293,12 @@
                          addSongToPlaylist(songId, playlistId);
                      } else {
                          showSnackbar("この曲は既に追加されています。");
-                         // shouldHideMenu = false; // Keep menu open if action fails? Optional.
+                         shouldHideMenu = false; // Keep menu open
                      }
                  }
                 break;
              case 'createPlaylist':
-                 showCreatePlaylistModal(); // Show the modal
-                 // Keep context menu open while modal is shown? Maybe not necessary.
+                 showCreatePlaylistModal();
                  break;
             case 'share':
                  const songToShare = findSongById(songId);
@@ -2134,13 +2318,13 @@
                  break;
             default:
                 console.warn("Unknown context menu action:", action);
+                shouldHideMenu = false; // Don't hide for unknown actions
         }
 
         if(shouldHideMenu) {
             hideContextMenu(); // Close menu after action
         }
     }
-
     // ==========================================================================
     // YouTube Player Initialization
     // ==========================================================================
@@ -3142,11 +3326,52 @@ function renderUserPlaylists() {
     // ==========================================================================
     // Player Control Functions (Keep existing functions)
     // ==========================================================================
-    function playSong(originalIndex) {
+    function playSong(originalIndex, keepQueueMode = false) { // Add optional parameter
+      // Add a check for elements existence, though should be fine if called after onPlayerReady
       if (!elements.currentSongTitle || !elements.currentSongDuration) {
           console.error("Cannot play song: Title or Duration element not found.");
           return;
       }
+      if (!appState.isPlayerReady) {
+        showSnackbar("プレイヤーの準備ができていません。");
+        return;
+      }
+
+      // --- Reset Queue Mode (Usually) ---
+      // When a song is explicitly played from a list, typically reset queue context.
+      if (!keepQueueMode) {
+          // Check if the song being played *is* the next logical song in the *current* queue
+          const isNextInQueue = appState.playMode === 'queue' &&
+                                appState.currentQueueIndex >= 0 &&
+                                (appState.currentQueueIndex < appState.queue.length) && // Ensure index is valid
+                                appState.songs[originalIndex]?.id === appState.queue[appState.currentQueueIndex];
+
+          if (!isNextInQueue) {
+                console.log("Explicit play action, resetting queue mode (unless keepQueueMode is true).");
+                appState.playMode = 'playlist';
+                appState.currentQueueIndex = -1;
+                // Optionally clear the queue entirely? Or just the index?
+                // appState.queue = []; // Uncomment to clear queue on explicit play
+          } else {
+               console.log("Playing next song in queue sequence.");
+          }
+      } else {
+           console.log("Keeping queue mode as requested.");
+           // Ensure currentQueueIndex matches the played song if keepQueueMode is true
+           const songId = appState.songs[originalIndex]?.id;
+           const indexInQueue = appState.queue.findIndex(id => id === songId);
+           if (indexInQueue !== -1) {
+               appState.currentQueueIndex = indexInQueue;
+           } else {
+               // Song played with keepQueueMode=true is not in queue? Revert to playlist mode.
+               console.warn("keepQueueMode was true, but played song not found in queue. Reverting to playlist mode.");
+               appState.playMode = 'playlist';
+               appState.currentQueueIndex = -1;
+           }
+      }
+      // --- End Reset Queue Mode ---
+
+        // ... rest of the existing playSong function ...
       if (!appState.isPlayerReady) {
         showSnackbar("プレイヤーの準備ができていません。");
         return;
@@ -3202,49 +3427,303 @@ function renderUserPlaylists() {
         }
     }
     function playNextSong() {
-        if (appState.songs.length === 0) return;
-        let nextIndex;
-        const currentIndex = appState.currentSongIndex;
-        if (currentIndex === -1) { nextIndex = 0; }
-        else if (appState.isShuffle) {
-            if (appState.songs.length <= 1) nextIndex = 0;
-            else { do { nextIndex = Math.floor(Math.random() * appState.songs.length); } while (nextIndex === currentIndex); }
-        } else { nextIndex = (currentIndex + 1) % appState.songs.length; }
-        playSong(nextIndex);
+        if (appState.songs.length === 0 && appState.queue.length === 0) return;
+
+        let nextSongId = null;
+
+        // 1. Check if there's a song inserted via "Play Next" right after the current one
+        // This happens if we are in 'playlist' mode but added a song to play next.
+        if (appState.playMode === 'playlist' && appState.queue.length > 0 && appState.currentQueueIndex === -1) {
+             // Check if the song *after* the current playlist song was inserted at queue index 0
+             // This logic assumes 'playNext' inserts at index 0 when not in queue mode yet.
+             // A more robust way is needed if playNext inserts differently.
+             // Let's simplify: If queue has items and we are in playlist mode, start queue playback.
+             console.log("Playlist mode, but queue exists. Starting queue playback.");
+             appState.playMode = 'queue';
+             appState.currentQueueIndex = 0; // Start from the beginning of the queue
+             nextSongId = appState.queue[appState.currentQueueIndex];
+
+        } else if (appState.playMode === 'queue' && appState.queue.length > 0) {
+            // 2. We are already playing from the queue
+            console.log("Queue mode: Playing next from queue.");
+            const nextQueueIndex = appState.currentQueueIndex + 1;
+            if (nextQueueIndex < appState.queue.length) {
+                // Play next song in the queue
+                appState.currentQueueIndex = nextQueueIndex;
+                nextSongId = appState.queue[appState.currentQueueIndex];
+            } else {
+                // Reached end of the queue
+                console.log("Reached end of queue.");
+                showSnackbar("キューの再生が終了しました");
+                appState.playMode = 'playlist'; // Switch back to playlist mode
+                appState.currentQueueIndex = -1;
+                // Optionally play next from playlist/shuffle, or just stop?
+                // Let's play next from the original playlist context for now
+                const lastPlayedQueueSongId = appState.queue[appState.queue.length - 1];
+                const lastPlayedOriginalIndex = findSongIndexById(lastPlayedQueueSongId);
+
+                // Fallback to finding index based on currentSongIndex if the last queue item isn't in songs array
+                const baseIndex = (lastPlayedOriginalIndex !== -1) ? lastPlayedOriginalIndex : appState.currentSongIndex;
+
+
+                if (appState.isShuffle) {
+                     if (appState.songs.length <= 1) {
+                         const originalIndex = 0;
+                         nextSongId = appState.songs[originalIndex]?.id;
+                     } else {
+                          let nextOriginalIndex;
+                          do {
+                              nextOriginalIndex = Math.floor(Math.random() * appState.songs.length);
+                          } while (nextOriginalIndex === baseIndex && appState.songs.length > 1);
+                           nextSongId = appState.songs[nextOriginalIndex]?.id;
+                     }
+                 } else {
+                    // Play song after the last played original song
+                    const nextOriginalIndex = (baseIndex + 1) % appState.songs.length;
+                     nextSongId = appState.songs[nextOriginalIndex]?.id;
+                 }
+                console.log("Falling back to playlist/shuffle. Next ID:", nextSongId);
+            }
+        } else {
+            // 3. No queue involved, play from playlist/shuffle as before
+             console.log("Playlist/Shuffle mode: Playing next.");
+             const currentIndex = appState.currentSongIndex;
+             if (currentIndex === -1) {
+                 // Nothing was playing, play first song from current list (playlist/filtered)
+                 const firstSongId = appState.filteredSongs[0]?.id;
+                  if(firstSongId) {
+                       nextSongId = firstSongId;
+                  } else if (appState.songs.length > 0) {
+                       // Fallback to very first song if filtered list is empty
+                       nextSongId = appState.songs[0]?.id;
+                  }
+             } else if (appState.isShuffle) {
+                if (appState.songs.length <= 1) {
+                     const originalIndex = 0;
+                     nextSongId = appState.songs[originalIndex]?.id;
+                } else {
+                    let nextOriginalIndex;
+                    do {
+                        nextOriginalIndex = Math.floor(Math.random() * appState.songs.length);
+                    } while (nextOriginalIndex === currentIndex && appState.songs.length > 1); // Ensure different song if possible
+                     nextSongId = appState.songs[nextOriginalIndex]?.id;
+                }
+             } else {
+                // Find next song in the *currently filtered* list if possible
+                 const currentFilteredIndex = appState.filteredSongs.findIndex(s => s.id === appState.songs[currentIndex].id);
+                 let nextFilteredIndex = -1;
+                 if (currentFilteredIndex !== -1) {
+                     nextFilteredIndex = (currentFilteredIndex + 1) % appState.filteredSongs.length;
+                 } else {
+                     // If current song not in filtered list (e.g., after search cleared), fallback to original list logic
+                     nextFilteredIndex = (currentIndex + 1) % appState.songs.length; // Use original index
+                     // Try to find the song by index in filtered list; otherwise, use original song ID
+                     nextSongId = appState.songs[nextFilteredIndex]?.id; // Get ID directly
+                 }
+
+                 if (!nextSongId && nextFilteredIndex !== -1) { // If ID wasn't set by fallback
+                    nextSongId = appState.filteredSongs[nextFilteredIndex]?.id;
+                 }
+             }
+        }
+
+        // Finally, find the original index of the determined next song ID and play it
+        if (nextSongId) {
+            const nextOriginalIndex = findSongIndexById(nextSongId);
+            if (nextOriginalIndex !== -1) {
+                playSong(nextOriginalIndex);
+            } else {
+                console.error("Could not find original index for next song ID:", nextSongId);
+                // Handle error, maybe clear queue/mode?
+                appState.playMode = 'playlist';
+                appState.currentQueueIndex = -1;
+            }
+        } else {
+             console.log("No next song could be determined.");
+             // Stop playback or handle end of everything
+              appState.isPlaying = false;
+              resetPlayerInfo(); // Reset UI
+        }
     }
     function playPreviousSong() {
-        if (appState.songs.length === 0) return;
-        let prevIndex;
-        const currentIndex = appState.currentSongIndex;
-        if (currentIndex === -1) { prevIndex = 0; playSong(prevIndex); return; }
-        try { if (appState.player && typeof appState.player.getCurrentTime === 'function' && appState.player.getCurrentTime() > 3) { appState.player.seekTo(0); return; }
-        } catch (error) { console.warn("Could not get current time for previous song logic:", error); }
-        if (appState.isShuffle) {
-             if (appState.songs.length <= 1) prevIndex = 0;
-             else { do { prevIndex = Math.floor(Math.random() * appState.songs.length); } while (prevIndex === currentIndex); }
-        } else {
-             prevIndex = currentIndex - 1;
-             if (prevIndex < 0) prevIndex = appState.songs.length - 1;
+        if (appState.songs.length === 0 && appState.queue.length === 0) return;
+
+        // Always try to restart current song if played > 3 seconds, regardless of mode
+        try {
+            if (appState.isPlayerReady && appState.player && typeof appState.player.getCurrentTime === 'function' && appState.player.getCurrentTime() > 3) {
+                 console.log("Restarting current song.");
+                appState.player.seekTo(0);
+                return;
+            }
+        } catch (error) {
+            console.warn("Could not get current time for previous song logic:", error);
         }
-        playSong(prevIndex);
+
+        let prevSongId = null;
+
+        if (appState.playMode === 'queue' && appState.queue.length > 0) {
+            // Playing from queue
+             console.log("Queue mode: Playing previous from queue.");
+             const prevQueueIndex = appState.currentQueueIndex - 1;
+             if (prevQueueIndex >= 0) {
+                 // Play previous song in the queue
+                 appState.currentQueueIndex = prevQueueIndex;
+                 prevSongId = appState.queue[appState.currentQueueIndex];
+             } else {
+                 // Reached beginning of the queue - Stop? Or play previous from playlist?
+                 console.log("Reached beginning of queue. Stopping or falling back?");
+                  // Option 1: Stop or do nothing
+                  // prevSongId = null;
+                  // Option 2: Fallback to playlist previous (more complex)
+                   appState.playMode = 'playlist';
+                   appState.currentQueueIndex = -1;
+                   showSnackbar("キューの先頭です");
+                  // Fallback to previous from original playlist context
+                  const firstQueueSongId = appState.queue[0];
+                  const firstPlayedOriginalIndex = findSongIndexById(firstQueueSongId);
+                  const baseIndex = (firstPlayedOriginalIndex !== -1) ? firstPlayedOriginalIndex : appState.currentSongIndex;
+
+                   if (appState.isShuffle) { // Find a random different one
+                         if (appState.songs.length <= 1) {
+                            const originalIndex = 0;
+                            prevSongId = appState.songs[originalIndex]?.id;
+                         } else {
+                             let prevOriginalIndex;
+                             do {
+                                prevOriginalIndex = Math.floor(Math.random() * appState.songs.length);
+                             } while (prevOriginalIndex === baseIndex && appState.songs.length > 1);
+                              prevSongId = appState.songs[prevOriginalIndex]?.id;
+                         }
+                    } else { // Find previous in original list order
+                        let prevOriginalIndex = baseIndex - 1;
+                        if (prevOriginalIndex < 0) {
+                            prevOriginalIndex = appState.songs.length - 1; // Loop to end
+                        }
+                         prevSongId = appState.songs[prevOriginalIndex]?.id;
+                    }
+                    console.log("Falling back to playlist/shuffle. Prev ID:", prevSongId);
+             }
+
+        } else {
+            // No queue involved, play previous from playlist/shuffle
+             console.log("Playlist/Shuffle mode: Playing previous.");
+             const currentIndex = appState.currentSongIndex;
+             if (currentIndex === -1) {
+                 // Nothing playing, maybe play last song? Or first? Let's play first for consistency.
+                  prevSongId = appState.filteredSongs[0]?.id || appState.songs[0]?.id;
+             } else if (appState.isShuffle) {
+                 if (appState.songs.length <= 1) {
+                     const originalIndex = 0;
+                     prevSongId = appState.songs[originalIndex]?.id;
+                 } else {
+                     let prevOriginalIndex;
+                     do {
+                        prevOriginalIndex = Math.floor(Math.random() * appState.songs.length);
+                     } while (prevOriginalIndex === currentIndex && appState.songs.length > 1);
+                     prevSongId = appState.songs[prevOriginalIndex]?.id;
+                 }
+             } else {
+                 // Find previous song in the *currently filtered* list if possible
+                 const currentFilteredIndex = appState.filteredSongs.findIndex(s => s.id === appState.songs[currentIndex].id);
+                  let prevFilteredIndex = -1;
+                  if (currentFilteredIndex !== -1) {
+                      prevFilteredIndex = currentFilteredIndex - 1;
+                      if (prevFilteredIndex < 0) {
+                          prevFilteredIndex = appState.filteredSongs.length - 1; // Loop to end
+                      }
+                  } else {
+                     // Fallback to original list logic
+                     let prevOriginalIndex = currentIndex - 1;
+                     if (prevOriginalIndex < 0) {
+                         prevOriginalIndex = appState.songs.length - 1;
+                     }
+                      prevSongId = appState.songs[prevOriginalIndex]?.id; // Get ID directly
+                  }
+                  if (!prevSongId && prevFilteredIndex !== -1) { // If ID not set by fallback
+                    prevSongId = appState.filteredSongs[prevFilteredIndex]?.id;
+                  }
+             }
+        }
+
+        // Finally, play the determined previous song ID
+        if (prevSongId) {
+            const prevOriginalIndex = findSongIndexById(prevSongId);
+            if (prevOriginalIndex !== -1) {
+                playSong(prevOriginalIndex);
+            } else {
+                console.error("Could not find original index for previous song ID:", prevSongId);
+                appState.playMode = 'playlist'; // Reset state on error
+                appState.currentQueueIndex = -1;
+            }
+        } else {
+            console.log("No previous song could be determined.");
+        }
     }
     function handleSongEnd() {
-        console.log("Song ended. Loop mode:", appState.loopMode);
-        switch (appState.loopMode) {
-            case 'one':
-                if(appState.player && typeof appState.player.seekTo === 'function' && typeof appState.player.playVideo === 'function') {
-                    try { appState.player.seekTo(0); appState.player.playVideo(); console.log("Looping one song."); }
-                    catch(e){ console.error("Error restarting song for loop one:", e); playNextSong(); }
-                } else { playNextSong(); }
-                break;
-            case 'all':
-                console.log("Looping all, playing next."); playNextSong(); break;
-            case 'none': default:
-                if (!appState.isShuffle && appState.currentSongIndex === appState.songs.length - 1) {
-                     console.log("Reached end of playlist, stopping.");
-                     appState.isPlaying = false; updateNowPlayingBar(); updateProgress();
-                } else { console.log("Playing next song after end."); playNextSong(); }
-                break;
+        console.log("Song ended. Loop mode:", appState.loopMode, "Play mode:", appState.playMode);
+
+        // --- Handle Loop One ---
+        if (appState.loopMode === 'one') {
+            if(appState.player && typeof appState.player.seekTo === 'function' && typeof appState.player.playVideo === 'function') {
+                try {
+                    appState.player.seekTo(0);
+                    appState.player.playVideo();
+                    console.log("Looping one song.");
+                    return; // Don't proceed further if looping one
+                } catch(e){
+                    console.error("Error restarting song for loop one:", e);
+                    // Fall through to play next if loop one fails
+                }
+            }
+        }
+
+        // --- Check Queue First ---
+        if (appState.playMode === 'queue' && appState.queue.length > 0) {
+            const nextQueueIndex = appState.currentQueueIndex + 1;
+            if (nextQueueIndex < appState.queue.length) {
+                // Play next in queue
+                console.log("Song ended, playing next from queue.");
+                appState.currentQueueIndex = nextQueueIndex;
+                const nextSongId = appState.queue[appState.currentQueueIndex];
+                const nextOriginalIndex = findSongIndexById(nextSongId);
+                if (nextOriginalIndex !== -1) {
+                    playSong(nextOriginalIndex);
+                } else {
+                    console.error("Song ID from queue not found in main list:", nextSongId);
+                    // Skip this song and try the next one in queue? Or switch to playlist?
+                    playNextSong(); // Try playing the logical next song (which might be further in queue or playlist)
+                }
+                return; // Don't proceed to playlist logic
+            } else {
+                // Reached end of queue
+                 console.log("Song ended, reached end of queue.");
+                 showSnackbar("キューの再生が終了しました");
+                 appState.playMode = 'playlist'; // Switch back to playlist mode
+                 appState.currentQueueIndex = -1;
+                 // Now, fall through to playlist/shuffle logic below if loopMode is 'all'
+            }
+        }
+
+        // --- Handle Playlist/Shuffle (If not looping one and queue finished or not active) ---
+        if (appState.loopMode === 'all') {
+            console.log("Song ended, looping all (playlist/shuffle).");
+            playNextSong(); // playNextSong handles playlist/shuffle logic now
+        } else { // loopMode is 'none'
+            // Play next unless it's the absolute last song in the current context (playlist/filtered list)
+             const isLastSongInContext = !appState.isShuffle && (
+                (appState.playMode === 'playlist' && appState.currentSongIndex === appState.songs.length - 1) ||
+                (appState.playMode === 'playlist' && appState.filteredSongs.findIndex(s => s.id === currentSongId()) === appState.filteredSongs.length - 1)
+                // Add more checks if other contexts exist
+             );
+
+             if (isLastSongInContext) {
+                console.log("Song ended, reached end of playlist (loop none). Stopping.");
+                appState.isPlaying = false; // Ensure state is updated
+                resetPlayerInfo(); // Reset UI
+             } else {
+                 console.log("Song ended (loop none), playing next.");
+                 playNextSong(); // Play next according to playlist/shuffle
+             }
         }
     }
     function toggleShuffle() {
