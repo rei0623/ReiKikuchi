@@ -1677,8 +1677,15 @@
   </div>
 
   <div id="user-playlists-tab" class="tab-content hidden flex-grow" role="tabpanel">
-      <!-- User Playlists content -->
-  </div>
+    <!-- ↓↓↓ ここにプレイリストリストのコンテナを追加 ↓↓↓ -->
+    <div class="user-playlists-list scrollable-list-area" id="user-playlists-list">
+        <!-- JavaScriptがここにプレイリスト項目をレンダリングします -->
+        <!-- または、初期状態としてローディング表示などを入れても良いです -->
+        <p class="p-4 text-center text-gray-500">マイプレイリストを読み込み中...</p>
+    </div>
+    <!-- ↑↑↑ ここまでプレイリストリストのコンテナ ↑↑↑ -->
+    <!-- (空状態メッセージはJavaScriptによってこの中に追加/削除されます) -->
+</div>
 
   <!-- ↓↓↓ Queue Tab Content: Updated structure ↓↓↓ -->
   <div id="queue-tab" class="tab-content hidden flex-grow" role="tabpanel">
@@ -1792,7 +1799,27 @@
         </div>
     </div>
 
-
+<!-- ========== プレイリスト作成モーダル ========== -->
+<div id="create-playlist-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="create-playlist-modal-title">
+  <div class="modal-content">
+    <div class="flex justify-between items-center mb-4">
+      <h3 id="create-playlist-modal-title" class="text-lg font-bold">新しいプレイリストを作成</h3>
+      <button class="modal-close-btn close-modal-btn focusable" data-modal-id="createPlaylist" aria-label="閉じる">×</button>
+    </div>
+    <div class="mb-4">
+      <label for="playlist-name-input" class="block text-sm mb-2">プレイリスト名</label>
+      <!-- ↓↓↓ 名前入力欄 (IDを確認) ↓↓↓ -->
+      <input type="text" id="playlist-name-input" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);" placeholder="例: お気に入りチルソング">
+    </div>
+    <div class="flex justify-end">
+      <!-- ↓↓↓ 保存ボタン (IDを確認) ↓↓↓ -->
+      <button id="save-playlist-btn" class="px-4 py-2 rounded text-white focusable" style="background-color: var(--primary-color);">
+        作成して保存
+      </button>
+    </div>
+  </div>
+</div>
+<!-- ========== ここまでプレイリスト作成モーダル ========== -->
 
     <div id="playlist-detail-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="playlist-detail-modal-title">
        <div class="modal-content"> <!-- Removed max-h here, handled by list inside -->
@@ -1925,8 +1952,18 @@
     const MAX_HISTORY = 20;
     const VOLUME_STEP = 5; // For keyboard control
     const SEEK_STEP = 5; // For keyboard control (seconds)
-
+    const LS_KEYS = {
+        HISTORY: 'reiKikuchiPlayerHistory',
+        FAVORITES: 'reiKikuchiPlayerFavorites',
+        PLAYLISTS: 'reiKikuchiPlayerPlaylists',
+        USER: 'reiKikuchiPlayerUser',
+        THEME: 'reiKikuchiPlayerTheme',
+        QUEUE: 'reiKikuchiPlayerQueue' // <-- New Key
+      };
     // ==========================================================================
+    // Data and State Management
+    // ==========================================================================
+        // ==========================================================================
     // Data and State Management
     // ==========================================================================
     const appState = {
@@ -1949,12 +1986,12 @@
       activeModalId: null, // Track the currently open modal
       isPlayerReady: false,
       isBarVisible: false, // Track if the Now Playing Bar should be visible
-      // ... (existing states) ...
+      // --- ↓↓↓ QUEUE STATE ADDED ↓↓↓ ---
       queue: [], // 曲IDの配列 (再生待ちリスト)
       currentQueueIndex: -1, // キュー内での現在の再生位置 (-1 はキュー再生中でない)
       playMode: 'playlist', // 'playlist' または 'queue'
-      // ... (visualizer, contextMenu states) ...
-      visualizer: { // visualizer object start
+      // --- ↑↑↑ QUEUE STATE ADDED ↑↑↑ ---
+      visualizer: {
           context: null,
           analyser: null,
           animationFrameId: null,
@@ -1962,14 +1999,14 @@
           dataArray: null,
           canvas: null,
           canvasCtx: null,
-      }, // visualizer object end - Moved contextMenu outside
-      contextMenu: { // New state for context menu - Now at the correct level
+      },
+      contextMenu: {
         visible: false,
         x: 0,
         y: 0,
         targetSongId: null,
-        longPressTimer: null, // Timer for long press detection
-        isLongPress: false // Flag to indicate if long press occurred
+        longPressTimer: null,
+        isLongPress: false
       }
     }; // appState end
 
@@ -1979,114 +2016,126 @@
     let elements = {}; // Declare elements object, initialize later
 
     function initializeElements() {
-        elements = {
-            app: document.getElementById('app'),
-            body: document.body, // body要素を追加
-            playlist: document.getElementById('playlist'),
-            historyList: document.getElementById('history-list'),
-            favoritesList: document.getElementById('favorites-list'),
-            userPlaylistsList: document.getElementById('user-playlists-list'),
-            currentSongTitle: document.getElementById('current-song-title'),
-            currentSongDuration: document.getElementById('current-song-duration'),
-            progressBar: document.getElementById('progress-bar'),
-            progressContainer: document.querySelector('.progress-container'),
-            currentTime: document.getElementById('current-time'),
-            totalTime: document.getElementById('total-time'),
-            // Desktop Controls
-            btnPlay: document.getElementById('btn-play'),
-            btnPrev: document.getElementById('btn-prev'),
-            btnNext: document.getElementById('btn-next'),
-            btnShuffle: document.getElementById('btn-shuffle'),
-            btnLoop: document.getElementById('btn-loop'),
-            volumeSlider: document.getElementById('volume-slider'),
-            // --- General UI ---
-            themeToggle: document.getElementById('theme-toggle'),
-            searchInput: document.getElementById('search-input'),
-            tabs: document.querySelectorAll('.tab'),
-            tabContents: document.querySelectorAll('.tab-content'),
-            visualizerCanvas: document.getElementById('visualizer'),
-            nowPlayingBadge: document.getElementById('now-playing-badge'),
-            openYouTubeBtn: document.getElementById('open-youtube-btn'),
-            shareBtn: document.getElementById('share-btn'),
-            createPlaylistBtn: document.getElementById('create-playlist-btn'),
-            // youtubeSyncBtn: document.getElementById('youtube-sync-btn'), // Added dynamically by setupYouTubeSync
-            offlineMenuBtn: document.getElementById('offline-menu-btn'), // Offline button
-            // --- Modals ---
-            modals: { // モーダル要素をここに集約
-                createPlaylist: document.getElementById('create-playlist-modal'),
-                playlistDetail: document.getElementById('playlist-detail-modal'),
-                share: document.getElementById('share-modal'),
-                account: document.getElementById('account-modal'),
-                offline: document.getElementById('offline-modal') // Add offline modal placeholder
-            },
-            // --- Modal Close Buttons ---
-            modalCloseBtns: document.querySelectorAll('.close-modal-btn'), // 閉じるボタンを一括取得
-            // --- Modal Specific Buttons ---
-            modalButtons: {
-                savePlaylist: document.getElementById('save-playlist-btn'),
-                removeFromPlaylist: document.getElementById('remove-from-playlist-btn'),
-                sharePlaylist: document.getElementById('share-playlist-btn'),
-                copyLink: document.getElementById('copy-link-btn'),
-                login: document.getElementById('login-btn'),
-                showRegister: document.getElementById('show-register-btn'),
-                register: document.getElementById('register-btn'),
-                showLogin: document.getElementById('show-login-btn'),
-                syncData: document.getElementById('sync-data-btn'),
-                logout: document.getElementById('logout-btn'),
-                account: document.getElementById('account-btn') // ヘッダーのアカウントボタン
-            },
-            // --- Account Sections and Fields ---
-            accountSections: {
-                login: document.getElementById('login-section'),
-                register: document.getElementById('register-section'),
-                accountInfo: document.getElementById('account-info-section')
-            },
-            accountFields: {
-                loginEmail: document.getElementById('login-email'),
-                loginPassword: document.getElementById('login-password'),
-                registerName: document.getElementById('register-name'),
-                registerEmail: document.getElementById('register-email'),
-                registerPassword: document.getElementById('register-password'),
-                userName: document.getElementById('user-name'),
-                userEmail: document.getElementById('user-email')
-            },
-            // --- Playlist Related Elements ---
-            playlistElements: {
-                nameInput: document.getElementById('playlist-name-input'),
-                detailTitle: document.getElementById('playlist-detail-title'),
-                detailContent: document.getElementById('playlist-detail-content'),
-                shareObjectTitle: document.getElementById('share-object-title'),
-                shareLinkInput: document.getElementById('share-link-input')
-            },
-            snackbar: document.getElementById('snackbar'),
-            // --- Mobile Bottom Controls ---
-            bottomControls: document.getElementById('bottom-controls'),
-            btnPlayMobile: document.getElementById('btn-play-mobile'),
-            btnPrevMobile: document.getElementById('btn-prev-mobile'),
-            btnNextMobile: document.getElementById('btn-next-mobile'),
-            btnShuffleMobile: document.getElementById('btn-shuffle-mobile'),
-            btnLoopMobile: document.getElementById('btn-loop-mobile'),
-            // --- Now Playing Bar Elements ---
-            nowPlayingBar: document.getElementById('now-playing-bar'),
-            nowPlayingBarInfo: document.getElementById('now-playing-bar-info'),
-            nowPlayingBarThumb: document.getElementById('now-playing-bar-thumb'),
-            nowPlayingBarTitle: document.getElementById('now-playing-bar-title'),
-            nowPlayingBarArtist: document.getElementById('now-playing-bar-artist'),
-            btnPlayBar: document.getElementById('btn-play-bar'),
-            btnPrevBar: document.getElementById('btn-prev-bar'),
-            btnNextBar: document.getElementById('btn-next-bar'),
-            nowPlayingBarProgress: document.getElementById('now-playing-bar-progress'),
-            nowPlayingBarProgressContainer: document.getElementById('now-playing-bar-progress-container'),
-            volumeSliderBar: document.getElementById('volume-slider-bar'),
-            volumeIconBar: document.getElementById('now-playing-bar-volume-icon'),
-            // --- Context Menu Element ---
-            contextMenu: document.getElementById('context-menu'),
-        };
-        // Optional: Add checks here to ensure critical elements were found
-        if (!elements.playlist) console.error("ERROR: Playlist container not found during initialization!");
-        if (!elements.contextMenu) console.error("ERROR: Context Menu element not found during initialization!");
-        // ... other checks ...
-    }
+    elements = {
+        app: document.getElementById('app'),
+        body: document.body,
+        playlist: document.getElementById('playlist'),
+        historyList: document.getElementById('history-list'),
+        favoritesList: document.getElementById('favorites-list'),
+        userPlaylistsList: document.getElementById('user-playlists-list'), // <<< 確認: ユーザープレイリストのコンテナ
+        currentSongTitle: document.getElementById('current-song-title'),
+        currentSongDuration: document.getElementById('current-song-duration'),
+        progressBar: document.getElementById('progress-bar'),
+        progressContainer: document.querySelector('.progress-container'),
+        currentTime: document.getElementById('current-time'),
+        totalTime: document.getElementById('total-time'),
+        // Desktop Controls
+        btnPlay: document.getElementById('btn-play'),
+        btnPrev: document.getElementById('btn-prev'),
+        btnNext: document.getElementById('btn-next'),
+        btnShuffle: document.getElementById('btn-shuffle'),
+        btnLoop: document.getElementById('btn-loop'),
+        volumeSlider: document.getElementById('volume-slider'),
+        // --- General UI ---
+        themeToggle: document.getElementById('theme-toggle'),
+        searchInput: document.getElementById('search-input'),
+        tabs: document.querySelectorAll('.tab'),
+        tabContents: document.querySelectorAll('.tab-content'),
+        visualizerCanvas: document.getElementById('visualizer'),
+        nowPlayingBadge: document.getElementById('now-playing-badge'),
+        openYouTubeBtn: document.getElementById('open-youtube-btn'),
+        shareBtn: document.getElementById('share-btn'),
+        // createPlaylistBtn: document.getElementById('create-playlist-btn'), // <<< 削除またはコメントアウト (HTMLにないため)
+        offlineMenuBtn: document.getElementById('offline-menu-btn'),
+        // --- Modals ---
+        modals: {
+            createPlaylist: document.getElementById('create-playlist-modal'), // <<< 確認
+            playlistDetail: document.getElementById('playlist-detail-modal'),
+            share: document.getElementById('share-modal'),
+            account: document.getElementById('account-modal'),
+            offline: document.getElementById('offline-modal')
+        },
+        // --- Modal Close Buttons ---
+        modalCloseBtns: document.querySelectorAll('.close-modal-btn'),
+        // --- Modal Specific Buttons ---
+        modalButtons: {
+            savePlaylist: document.getElementById('save-playlist-btn'), // <<< 確認
+            removeFromPlaylist: document.getElementById('remove-from-playlist-btn'),
+            sharePlaylist: document.getElementById('share-playlist-btn'),
+            copyLink: document.getElementById('copy-link-btn'),
+            login: document.getElementById('login-btn'),
+            showRegister: document.getElementById('show-register-btn'),
+            register: document.getElementById('register-btn'),
+            showLogin: document.getElementById('show-login-btn'),
+            syncData: document.getElementById('sync-data-btn'),
+            logout: document.getElementById('logout-btn'),
+            account: document.getElementById('account-btn')
+        },
+        // --- Account Sections and Fields ---
+        accountSections: {
+            login: document.getElementById('login-section'),
+            register: document.getElementById('register-section'),
+            accountInfo: document.getElementById('account-info-section')
+        },
+        accountFields: {
+            loginEmail: document.getElementById('login-email'),
+            loginPassword: document.getElementById('login-password'),
+            registerName: document.getElementById('register-name'),
+            registerEmail: document.getElementById('register-email'),
+            registerPassword: document.getElementById('register-password'),
+            userName: document.getElementById('user-name'),
+            userEmail: document.getElementById('user-email')
+        },
+        // --- Playlist Related Elements ---
+        playlistElements: {
+            nameInput: document.getElementById('playlist-name-input'), // <<< 確認
+            detailTitle: document.getElementById('playlist-detail-title'),
+            detailContent: document.getElementById('playlist-detail-content'),
+            shareObjectTitle: document.getElementById('share-object-title'),
+            shareLinkInput: document.getElementById('share-link-input')
+        },
+        snackbar: document.getElementById('snackbar'),
+        // --- Mobile Bottom Controls ---
+        bottomControls: document.getElementById('bottom-controls'),
+        btnPlayMobile: document.getElementById('btn-play-mobile'),
+        btnPrevMobile: document.getElementById('btn-prev-mobile'),
+        btnNextMobile: document.getElementById('btn-next-mobile'),
+        btnShuffleMobile: document.getElementById('btn-shuffle-mobile'),
+        btnLoopMobile: document.getElementById('btn-loop-mobile'),
+        // --- Now Playing Bar Elements ---
+        nowPlayingBar: document.getElementById('now-playing-bar'),
+        nowPlayingBarInfo: document.getElementById('now-playing-bar-info'),
+        nowPlayingBarThumb: document.getElementById('now-playing-bar-thumb'),
+        nowPlayingBarTitle: document.getElementById('now-playing-bar-title'),
+        nowPlayingBarArtist: document.getElementById('now-playing-bar-artist'),
+        btnPlayBar: document.getElementById('btn-play-bar'),
+        btnPrevBar: document.getElementById('btn-prev-bar'),
+        btnNextBar: document.getElementById('btn-next-bar'),
+        nowPlayingBarProgress: document.getElementById('now-playing-bar-progress'),
+        nowPlayingBarProgressContainer: document.getElementById('now-playing-bar-progress-container'),
+        volumeSliderBar: document.getElementById('volume-slider-bar'),
+        volumeIconBar: document.getElementById('now-playing-bar-volume-icon'),
+        // --- Context Menu Element ---
+        contextMenu: document.getElementById('context-menu'),
+        // --- Queue UI Elements ---
+        queueList: document.getElementById('queue-list'),
+        queueTabContent: document.getElementById('queue-tab'),
+        queueEmptyState: document.querySelector('#queue-tab .empty-state-container'),
+        queueClearBtn: document.getElementById('clear-queue-btn'),
+        queueCountBadge: document.getElementById('queue-count-badge'),
+    };
+
+    // --- エラーチェック ---
+    // Optional: Add checks here to ensure critical elements were found
+    if (!elements.playlist) console.error("ERROR: Playlist container not found!");
+    if (!elements.userPlaylistsList) console.error("ERROR: User Playlists List container not found!");
+    if (!elements.modals.createPlaylist) console.error("ERROR: Create Playlist Modal (#create-playlist-modal) not found!");
+    if (!elements.modalButtons.savePlaylist) console.error("ERROR: Save Playlist Button (#save-playlist-btn) not found!");
+    if (!elements.playlistElements.nameInput) console.error("ERROR: Playlist Name Input (#playlist-name-input) not found!");
+    if (!elements.queueList) console.error("ERROR: Queue List container (#queue-list) not found!");
+    if (!elements.queueEmptyState) console.error("ERROR: Queue Empty State container (#queue-tab .empty-state-container) not found!");
+    // ... other checks ...
+}
 
     // ==========================================================================
     // Context Menu Functions
@@ -2268,65 +2317,431 @@
     // Queue Functions
     // ==========================================================================
     function addToQueue(songId, playNext = false) {
-        if (!songId) return;
+    if (!songId) return;
+    const song = findSongById(songId);
+    if (!song) {
+        showSnackbar("曲が見つかりません。");
+        return;
+    }
+
+    // --- Prevent Duplicates (Optional: Uncomment if needed) ---
+    const existingIndex = appState.queue.indexOf(songId);
+    if (existingIndex !== -1) {
+        if (playNext) {
+            if (appState.queue.length > 1) { // Only move if there are other items
+                appState.queue.splice(existingIndex, 1); // Remove from old position
+                let insertIndex;
+                if (appState.playMode === 'queue' && appState.currentQueueIndex !== -1) {
+                    insertIndex = appState.currentQueueIndex + 1;
+                } else {
+                     insertIndex = 0;
+                     if (appState.isPlaying && appState.playMode !== 'queue') {
+                         insertIndex = 0;
+                     }
+                }
+                appState.queue.splice(insertIndex, 0, songId);
+                showSnackbar(`「${escapeHTML(song.title)}」を次に再生するよう移動しました`);
+            } else {
+                showSnackbar(`「${escapeHTML(song.title)}」は既にキューの唯一の曲です`);
+            }
+        } else {
+            showSnackbar(`「${escapeHTML(song.title)}」は既にキューにあります。`);
+        }
+        renderQueueList(); // Update UI even if only moved or notified
+         if (appState.contextMenu.visible && appState.contextMenu.targetSongId === songId && elements.contextMenu) {
+             elements.contextMenu.innerHTML = generateContextMenuItems(song);
+         }
+        return; // Stop here after handling duplicate
+    }
+    // --- End Prevent Duplicates ---
+
+    // --- Add New Item ---
+    if (playNext) {
+        let insertIndex;
+        if (appState.playMode === 'queue' && appState.currentQueueIndex !== -1) {
+            insertIndex = appState.currentQueueIndex + 1;
+        } else {
+             insertIndex = 0;
+             if (appState.isPlaying && appState.playMode !== 'queue') {
+                 insertIndex = 0;
+             }
+        }
+        appState.queue.splice(insertIndex, 0, songId);
+        showSnackbar(`「${escapeHTML(song.title)}」を次に再生します`);
+    } else {
+        appState.queue.push(songId);
+        showSnackbar(`「${escapeHTML(song.title)}」をキューに追加しました`);
+    }
+
+    console.log("Queue updated:", appState.queue);
+    renderQueueList(); // <<<====== [FIX] Render queue after adding/moving
+    if (appState.contextMenu.visible && appState.contextMenu.targetSongId === songId && elements.contextMenu) {
+         elements.contextMenu.innerHTML = generateContextMenuItems(song);
+    }
+}
+
+function clearQueue() {
+    appState.queue = [];
+    appState.currentQueueIndex = -1;
+    if (appState.playMode === 'queue') {
+        appState.playMode = 'playlist'; // 再生モードを戻す
+    }
+    console.log("Queue cleared.");
+    showSnackbar("キューをクリアしました");
+    renderQueueList(); // <<<====== [FIX] Render queue after clearing
+}
+function removeFromQueue(songId) {
+    const indexToRemove = appState.queue.indexOf(songId);
+    if (indexToRemove === -1) return;
+
+    const song = findSongById(songId);
+    appState.queue.splice(indexToRemove, 1);
+    showSnackbar(`「${escapeHTML(song?.title || '曲')}」をキューから削除しました`);
+
+    // Adjust currentQueueIndex if the removed item was before or at the current position
+    if (indexToRemove < appState.currentQueueIndex) {
+        appState.currentQueueIndex--;
+    } else if (indexToRemove === appState.currentQueueIndex) {
+        // If the currently playing item was removed, stop marking any item as playing in queue
+        // The player will continue playing the song until it ends or is changed.
+        // handleSongEnd or playNextSong will figure out what to play next.
+        appState.currentQueueIndex = -1; // Indicate we are no longer tracking a specific queue index *during* this song
+         // But remain in queue mode if queue still has items.
+         if (appState.queue.length === 0) {
+             appState.playMode = 'playlist';
+         }
+    }
+     // Ensure index is valid after removal
+     if (appState.currentQueueIndex >= appState.queue.length) {
+          appState.currentQueueIndex = -1;
+     }
+
+    renderQueueList(); // <<<====== [FIX] Render queue after removing
+}
+function playFromQueue(queueIndex) {
+    // Find the actual index in the current DOM, in case filtering/sorting happens later
+    const queueItems = document.querySelectorAll('#queue-list .queue-item');
+    if (queueIndex < 0 || queueIndex >= queueItems.length) {
+         console.error("Invalid queue DOM index:", queueIndex);
+         return;
+    }
+    const targetItem = queueItems[queueIndex];
+    const songId = targetItem?.dataset?.songId;
+    const actualQueueIndex = appState.queue.indexOf(songId); // Find index in the underlying data array
+
+    if (!songId || actualQueueIndex === -1) {
+        console.error("Could not find songId or song in appState.queue for DOM index:", queueIndex, songId);
+        showSnackbar("キュー内の曲を再生できませんでした。");
+        return;
+    }
+
+    const originalIndex = findSongIndexById(songId);
+
+    if (originalIndex !== -1) {
+        appState.playMode = 'queue';
+        appState.currentQueueIndex = actualQueueIndex; // Use the index from the data array
+        playSong(originalIndex, true); // Play the song, keeping queue mode context
+        // renderQueueList() is called inside playSong, which will update highlighting
+    } else {
+        showSnackbar("キュー内の曲がメインリストに見つかりませんでした。");
+        // Optionally remove the invalid song ID from the queue here
+        // removeFromQueue(songId);
+    }
+}
+// ==========================================================================
+// Queue UI Rendering Function (NEW / REVISED)
+// ==========================================================================
+function renderQueueList() {
+    // Use elements object instead of querying the DOM every time
+    const container = elements.queueList;
+    const emptyStateContainer = elements.queueEmptyState;
+    const clearQueueBtn = elements.queueClearBtn;
+    const queueCountBadge = elements.queueCountBadge;
+
+    // Check if elements were found during initialization
+    if (!container || !emptyStateContainer || !clearQueueBtn || !queueCountBadge) {
+        // Log error only once if elements are missing from initialization
+        if (!renderQueueList.warned) { // Use a flag on the function itself
+            console.error("Queue list UI elements missing (check initialization and HTML IDs/structure). Cannot render queue.");
+            renderQueueList.warned = true; // Set flag to prevent repeated warnings
+        }
+        return; // Stop execution if elements are missing
+    }
+    renderQueueList.warned = false; // Reset warning if elements are found this time
+
+    // Update badge and clear button state
+    const queueLength = appState.queue.length;
+    if (queueLength > 0) {
+        queueCountBadge.textContent = queueLength;
+        queueCountBadge.classList.remove('hidden');
+        clearQueueBtn.disabled = false;
+    } else {
+        queueCountBadge.textContent = '0';
+        queueCountBadge.classList.add('hidden');
+        clearQueueBtn.disabled = true;
+    }
+
+    // Toggle empty state visibility
+    emptyStateContainer.classList.toggle('hidden', queueLength > 0);
+    // Ensure container is visible when not empty, hidden when empty
+    container.classList.toggle('hidden', queueLength === 0);
+
+    if (queueLength === 0) {
+        container.innerHTML = ''; // Clear the list content if empty
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    const currentlyPlayingSongId = currentSongId();
+
+    appState.queue.forEach((songId, index) => {
         const song = findSongById(songId);
+        const div = document.createElement('div');
+
         if (!song) {
-            showSnackbar("曲が見つかりません。");
+            console.warn(`Song ID ${songId} from queue not found in main song list.`);
+            div.className = `queue-item opacity-50 italic`;
+            div.dataset.songId = songId;
+            div.dataset.queueIndex = index;
+            div.innerHTML = `
+                 <div class="queue-item-info">
+                    <i class="fas fa-grip-vertical queue-item-drag-handle mr-2" aria-hidden="true"></i>
+                    <span class="queue-item-title">[不明な曲 ID: ${songId}]</span>
+                 </div>
+                 <div class="queue-item-actions">
+                     <button class="queue-item-remove-btn focusable" aria-label="キューから不明な曲を削除" data-song-id="${songId}">
+                         <i class="fas fa-times"></i>
+                     </button>
+                 </div>`;
+             const removeBtn = div.querySelector('.queue-item-remove-btn');
+             removeBtn?.addEventListener('click', (e) => {
+                 e.stopPropagation();
+                 removeFromQueue(songId);
+             });
+            fragment.appendChild(div);
             return;
         }
 
-        // Avoid duplicates? Optional, decide based on desired behavior.
-        // For now, allow duplicates. Remove this block to prevent them.
-        // if (appState.queue.includes(songId)) {
-        //     showSnackbar(`「${escapeHTML(song.title)}」は既にキューにあります。`);
-        //     return;
-        // }
+        const isCurrentQueueItem = appState.playMode === 'queue' && appState.currentQueueIndex === index;
+        const isSongPlaying = appState.isPlaying && currentlyPlayingSongId === song.id;
 
-        if (playNext) {
-            // "次に再生" のロジック
-            if (appState.isPlaying || appState.currentQueueIndex !== -1) {
-                // 再生中またはキュー再生中の場合、現在の曲の直後に挿入
-                const insertIndex = appState.currentQueueIndex + 1;
-                appState.queue.splice(insertIndex, 0, songId);
-                 // もし現在プレイリストを再生中だったら、キュー再生モードに切り替える準備
-                 if (appState.playMode === 'playlist') {
-                    // 次の曲からキューを再生するようにインデックスを設定
-                    // (現在の曲が終わるか、Nextを押した時にキューから再生される)
-                    // Note: playMode は playNextSong などで実際にキュー再生が始まる時に 'queue' にする
+        div.className = `queue-item focusable ${isCurrentQueueItem ? 'playing' : ''}`;
+        div.dataset.songId = song.id;
+        div.dataset.queueIndex = index;
+        div.tabIndex = 0;
+        div.draggable = true;
+
+        // --- Event Listeners ---
+        div.addEventListener('click', (e) => {
+             if (!e.target.closest('.queue-item-remove-btn') && !e.target.closest('.queue-item-drag-handle')) {
+                 // Pass the DOM index (position in the currently rendered list)
+                 const domIndex = Array.from(container.children).indexOf(div);
+                 if (domIndex !== -1) { // Check if index was found
+                    playFromQueue(domIndex);
+                 } else {
+                     console.warn("Could not determine DOM index for clicked queue item.");
                  }
-                showSnackbar(`「${escapeHTML(song.title)}」を次に再生します`);
-            } else {
-                // 再生中でない場合、キューの先頭に追加
-                appState.queue.unshift(songId);
-                showSnackbar(`「${escapeHTML(song.title)}」をキューに追加しました`);
+             }
+        });
+        div.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                 const domIndex = Array.from(container.children).indexOf(div);
+                 if (domIndex !== -1) {
+                    playFromQueue(domIndex);
+                 } else {
+                     console.warn("Could not determine DOM index for keydown on queue item.");
+                 }
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                 e.preventDefault();
+                 removeFromQueue(song.id);
             }
-        } else {
-            // 通常の "キューに追加" (末尾に追加)
-            appState.queue.push(songId);
-            showSnackbar(`「${escapeHTML(song.title)}」をキューに追加しました`);
-        }
+        });
+        div.addEventListener('dragstart', handleDragStart);
+        div.addEventListener('dragover', handleDragOver);
+        div.addEventListener('dragleave', handleDragLeave);
+        div.addEventListener('drop', handleDrop);
+        div.addEventListener('dragend', handleDragEnd);
 
-        console.log("Queue updated:", appState.queue);
-        // TODO: Update Queue UI when implemented
-        // renderQueueList();
-        // Update context menu immediately if it's open for the same song
-        if (appState.contextMenu.visible && appState.contextMenu.targetSongId === songId && elements.contextMenu) {
-             elements.contextMenu.innerHTML = generateContextMenuItems(song);
-        }
+        // --- Inner HTML ---
+        div.innerHTML = `
+            <div class="queue-item-info">
+               <i class="fas fa-grip-vertical queue-item-drag-handle mr-2 text-gray-400 dark:text-gray-500" aria-hidden="true"></i>
+                <img src="${song.thumbnail || ''}" alt="${escapeHTML(song.title)}" class="queue-item-thumb" loading="lazy">
+                <span class="queue-item-title">${escapeHTML(song.title)}</span>
+                ${isSongPlaying ? '<i class="fas fa-volume-up text-primary-color ml-2 text-xs animate-pulse"></i>' : ''}
+            </div>
+            <div class="queue-item-actions">
+                <button class="queue-item-remove-btn focusable text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400" aria-label="キューから「${escapeHTML(song.title)}」を削除" data-song-id="${song.id}">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        // --- Remove Button Listener ---
+        const removeBtn = div.querySelector('.queue-item-remove-btn');
+        removeBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeFromQueue(song.id);
+        });
+
+        fragment.appendChild(div);
+    });
+
+    container.innerHTML = ''; // Clear previous content
+    container.appendChild(fragment);
+}
+// ==========================================================================
+// Drag and Drop Functions for Queue (NEW / REVISED)
+// ==========================================================================
+let draggedItem = null; // The DOM element being dragged
+let draggedItemIndex = -1; // The original index in appState.queue
+let dragOverItem = null; // The DOM element being dragged over
+
+function handleDragStart(e) {
+    draggedItem = e.target.closest('.queue-item');
+    if (!draggedItem) return;
+
+    const songId = draggedItem.dataset.songId;
+    draggedItemIndex = appState.queue.indexOf(songId); // Get index from data array
+
+    if (draggedItemIndex === -1) {
+        console.error("Could not find dragged song in appState.queue:", songId);
+        e.preventDefault(); // Cancel drag
+        return;
     }
 
-    function clearQueue() {
-        appState.queue = [];
-        appState.currentQueueIndex = -1;
-        if (appState.playMode === 'queue') {
-            appState.playMode = 'playlist'; // 再生モードを戻す
-        }
-        console.log("Queue cleared.");
-        showSnackbar("キューをクリアしました");
-        // TODO: Update Queue UI
-        // renderQueueList();
+    // Use a minimal data transfer (needed for Firefox)
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+        e.dataTransfer.setData('text/plain', songId);
+        e.dataTransfer.setData('application/x-player-queue-index', draggedItemIndex.toString());
+    } catch (err) {
+        console.warn("Setting dataTransfer failed (IE/Edge?):", err);
+         e.dataTransfer.setData('Text', songId); // Fallback for IE
     }
 
+
+    // Add dragging style after a short delay to allow the browser to render the drag image
+    setTimeout(() => {
+        draggedItem?.classList.add('dragging');
+    }, 0);
+}
+
+function handleDragOver(e) {
+    e.preventDefault(); // Necessary to allow dropping
+    e.dataTransfer.dropEffect = 'move';
+
+    const targetItem = e.target.closest('.queue-item');
+    if (!targetItem || targetItem === draggedItem || targetItem === dragOverItem) {
+         // If dragging over self or empty space, remove indicator from previous target
+         if (dragOverItem && targetItem !== dragOverItem) {
+             dragOverItem.classList.remove('drag-over');
+             dragOverItem = null;
+         }
+        return;
+    }
+
+    // Remove previous drag-over class
+    if (dragOverItem) {
+        dragOverItem.classList.remove('drag-over');
+    }
+
+    // Add drag-over class to the new target
+    dragOverItem = targetItem;
+    dragOverItem.classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+     // Check if the mouse is leaving the queue-list container entirely or entering a non-item area
+     const queueList = document.getElementById('queue-list');
+     if (!queueList || !e.relatedTarget || !queueList.contains(e.relatedTarget)) {
+         if (dragOverItem) {
+             dragOverItem.classList.remove('drag-over');
+             dragOverItem = null;
+         }
+     } else {
+        // If moving between items, dragOver will handle removing the class from the previous item
+        const currentTarget = e.target.closest('.queue-item');
+         if (currentTarget && currentTarget === dragOverItem && e.relatedTarget.closest('.queue-item') !== dragOverItem) {
+             currentTarget.classList.remove('drag-over');
+             dragOverItem = null;
+         }
+     }
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent bubbling
+
+    const dropTargetItem = e.target.closest('.queue-item');
+
+    if (dragOverItem) {
+         dragOverItem.classList.remove('drag-over'); // Clean up visual cue immediately
+    }
+
+    if (!draggedItem || !dropTargetItem || draggedItem === dropTargetItem || draggedItemIndex === -1) {
+        console.log("Drop cancelled: Invalid target, same item, or missing drag data.");
+        // No need to call handleDragEnd here, it will be called automatically
+        return;
+    }
+
+    // --- Reorder Logic ---
+    const dropTargetSongId = dropTargetItem.dataset.songId;
+    const dropIndex = appState.queue.indexOf(dropTargetSongId); // Get target index from data array
+
+    if (dropIndex === -1) {
+        console.error("Could not find drop target song in appState.queue:", dropTargetSongId);
+        return;
+    }
+
+    // Move item in the appState.queue array
+    const [movedItem] = appState.queue.splice(draggedItemIndex, 1);
+    // Calculate the correct insertion index after removal
+    const insertIndex = (draggedItemIndex < dropIndex) ? dropIndex - 1 : dropIndex;
+    appState.queue.splice(insertIndex, 0, movedItem);
+
+
+    console.log("Queue reordered:", appState.queue);
+
+    // --- Adjust currentQueueIndex ---
+    const originalCurrentIndex = appState.currentQueueIndex;
+    let newCurrentIndex = originalCurrentIndex;
+
+    if (originalCurrentIndex === -1) {
+         // If nothing was playing in queue context, no index adjustment needed
+    } else if (draggedItemIndex === originalCurrentIndex) {
+        // Moved the currently playing item: update its index
+        newCurrentIndex = insertIndex;
+    } else if (draggedItemIndex < originalCurrentIndex && insertIndex >= originalCurrentIndex) {
+        // Moved an item from *before* current to *at or after* current: current shifts up
+        newCurrentIndex--;
+    } else if (draggedItemIndex > originalCurrentIndex && insertIndex <= originalCurrentIndex) {
+        // Moved an item from *after* current to *at or before* current: current shifts down
+        newCurrentIndex++;
+    }
+    // Ensure index stays within bounds
+    appState.currentQueueIndex = Math.max(-1, Math.min(newCurrentIndex, appState.queue.length - 1));
+
+    renderQueueList(); // Re-render the list with the new order
+    // handleDragEnd will clean up the draggedItem styles
+}
+
+
+function handleDragEnd(e) {
+    // Remove dragging class and reset styles from the originally dragged item
+    if (draggedItem) {
+        draggedItem.classList.remove('dragging');
+    }
+    // Ensure any lingering drag-over styles are removed
+    if (dragOverItem) {
+        dragOverItem.classList.remove('drag-over');
+    }
+    // Reset state variables
+    draggedItem = null;
+    draggedItemIndex = -1;
+    dragOverItem = null;
+}
     // (removeFromQueue, playFromQueueなどの関数はフェーズ3で追加)
 
     // ==========================================================================
@@ -2444,24 +2859,25 @@
     }
 
     function onPlayerReady(event) {
-      console.log("Player Ready");
-      initializeElements();
-      appState.isPlayerReady = true;
-      if(elements.volumeSlider) elements.volumeSlider.value = appState.volume;
-      if(elements.volumeSliderBar) elements.volumeSliderBar.value = appState.volume;
-      if(event.target && typeof event.target.setVolume === 'function') {
-          try { event.target.setVolume(appState.volume); } catch (e) { console.warn("Failed to set initial volume", e)}
-      }
-      loadSongsFromYouTube();
-      loadUserData();
-      initAudioAnalyser();
-      setupEventListeners(); // Setup UI interactions *after* elements are initialized
-      handleUrlParams();
-      checkBottomControlsVisibility();
-      setupYouTubeSync();
-      // offlinePlayback.init();
-      console.log("Player initialization sequence complete.");
+    console.log("Player Ready");
+    initializeElements();
+    appState.isPlayerReady = true;
+    if(elements.volumeSlider) elements.volumeSlider.value = appState.volume;
+    if(elements.volumeSliderBar) elements.volumeSliderBar.value = appState.volume;
+    if(event.target && typeof event.target.setVolume === 'function') {
+        try { event.target.setVolume(appState.volume); } catch (e) { console.warn("Failed to set initial volume", e)}
     }
+    loadSongsFromYouTube(); // Load songs first
+    loadUserData(); // Load history, favs, playlists, queue etc.
+    renderQueueList(); // <<<====== [ADD] Render initial queue state after loading data
+    initAudioAnalyser();
+    setupEventListeners(); // Setup UI interactions *after* elements are initialized
+    handleUrlParams();
+    checkBottomControlsVisibility();
+    setupYouTubeSync();
+    // offlinePlayback.init();
+    console.log("Player initialization sequence complete.");
+}
 
 
     function onPlayerStateChange(event) {
@@ -2637,42 +3053,51 @@
 
 
     function loadUserData() {
-      console.log("Loading user data from localStorage...");
-      try {
-          const storedHistory = localStorage.getItem('reiKikuchiPlayerHistory');
-          const storedFavorites = localStorage.getItem('reiKikuchiPlayerFavorites');
-          const storedPlaylists = localStorage.getItem('reiKikuchiPlayerPlaylists');
-          const storedUser = localStorage.getItem('reiKikuchiPlayerUser');
-          const savedTheme = localStorage.getItem('reiKikuchiPlayerTheme');
+    console.log("Loading user data from localStorage...");
+    try {
+        const storedHistory = localStorage.getItem(LS_KEYS.HISTORY);
+        const storedFavorites = localStorage.getItem(LS_KEYS.FAVORITES);
+        const storedPlaylists = localStorage.getItem(LS_KEYS.PLAYLISTS);
+        const storedUser = localStorage.getItem(LS_KEYS.USER);
+        const savedTheme = localStorage.getItem(LS_KEYS.THEME);
+        const storedQueue = localStorage.getItem(LS_KEYS.QUEUE); // <<<====== [ADD] Load queue
 
-          appState.history = storedHistory ? JSON.parse(storedHistory) : [];
-          appState.favorites = storedFavorites ? JSON.parse(storedFavorites) : [];
-          appState.userPlaylists = storedPlaylists ? JSON.parse(storedPlaylists) : [];
-          appState.loggedInUser = storedUser ? JSON.parse(storedUser) : null;
+        appState.history = storedHistory ? JSON.parse(storedHistory) : [];
+        appState.favorites = storedFavorites ? JSON.parse(storedFavorites) : [];
+        appState.userPlaylists = storedPlaylists ? JSON.parse(storedPlaylists) : [];
+        appState.loggedInUser = storedUser ? JSON.parse(storedUser) : null;
+        appState.queue = storedQueue ? JSON.parse(storedQueue) : []; // <<<====== [ADD] Initialize queue state
 
-          const isDark = savedTheme === 'dark';
-          if(elements.body) elements.body.classList.toggle('dark', isDark);
-          if(elements.themeToggle) {
-              elements.themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-              elements.themeToggle.classList.toggle('btn-active', isDark);
-              elements.themeToggle.classList.toggle('btn-inactive', !isDark);
-              elements.themeToggle.setAttribute('aria-pressed', isDark);
-          }
+        // Note: Filtering invalid queue items might be better done after songs are loaded
+        // or handled gracefully within renderQueueList.
 
-          renderHistoryList();
-          renderFavoritesList();
-          renderUserPlaylists();
-          updateAccountUI(!!appState.loggedInUser);
-          console.log("User data loaded.");
-      } catch(error) {
-          console.error("Error loading user data:", error);
-          showSnackbar("ユーザーデータの読み込みに失敗しました。");
-          appState.history = [];
-          appState.favorites = [];
-          appState.userPlaylists = [];
-          appState.loggedInUser = null;
-      }
+        const isDark = savedTheme === 'dark';
+        if(elements.body) elements.body.classList.toggle('dark', isDark);
+        if(elements.themeToggle) {
+            elements.themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            elements.themeToggle.classList.toggle('btn-active', isDark);
+            elements.themeToggle.classList.toggle('btn-inactive', !isDark);
+            elements.themeToggle.setAttribute('aria-pressed', isDark);
+        }
+
+        renderHistoryList();
+        renderFavoritesList();
+        renderUserPlaylists();
+        // renderQueueList(); // <<<====== Moved to onPlayerReady after data is loaded
+
+        updateAccountUI(!!appState.loggedInUser);
+        console.log("User data loaded.");
+    } catch(error) {
+        console.error("Error loading user data:", error);
+        showSnackbar("ユーザーデータの読み込みに失敗しました。");
+        // Reset states on error
+        appState.history = [];
+        appState.favorites = [];
+        appState.userPlaylists = [];
+        appState.loggedInUser = null;
+        appState.queue = []; // Reset queue on error
     }
+}
 
     function initAudioAnalyser() {
       console.log("Initializing visualizer...");
@@ -2710,36 +3135,36 @@
     // Event Listener Setup
     // ==========================================================================
     function setupEventListeners() {
-      console.log("Setting up event listeners...");
+    console.log("Setting up event listeners...");
 
-      // Player Controls (Desktop)
-      elements.btnPlay?.addEventListener('click', togglePlayPause);
-      elements.btnNext?.addEventListener('click', playNextSong);
-      elements.btnPrev?.addEventListener('click', playPreviousSong);
-      elements.btnShuffle?.addEventListener('click', toggleShuffle);
-      elements.btnLoop?.addEventListener('click', toggleLoopMode);
-      elements.volumeSlider?.addEventListener('input', handleVolumeChange);
-      elements.progressContainer?.addEventListener('click', seekToPosition);
+    // Player Controls (Desktop)
+    elements.btnPlay?.addEventListener('click', togglePlayPause);
+    elements.btnNext?.addEventListener('click', () => playNextSong()); // Pass () if playNextSong returns value
+    elements.btnPrev?.addEventListener('click', playPreviousSong);
+    elements.btnShuffle?.addEventListener('click', toggleShuffle);
+    elements.btnLoop?.addEventListener('click', toggleLoopMode);
+    elements.volumeSlider?.addEventListener('input', handleVolumeChange);
+    elements.progressContainer?.addEventListener('click', seekToPosition);
 
-       // Player Controls (Mobile)
-       elements.btnPlayMobile?.addEventListener('click', togglePlayPause);
-       elements.btnNextMobile?.addEventListener('click', playNextSong);
-       elements.btnPrevMobile?.addEventListener('click', playPreviousSong);
-       elements.btnShuffleMobile?.addEventListener('click', toggleShuffle);
-       elements.btnLoopMobile?.addEventListener('click', toggleLoopMode);
+    // Player Controls (Mobile)
+    elements.btnPlayMobile?.addEventListener('click', togglePlayPause);
+    elements.btnNextMobile?.addEventListener('click', () => playNextSong()); // Pass () if playNextSong returns value
+    elements.btnPrevMobile?.addEventListener('click', playPreviousSong);
+    elements.btnShuffleMobile?.addEventListener('click', toggleShuffle);
+    elements.btnLoopMobile?.addEventListener('click', toggleLoopMode);
 
-      // Header Controls
-      elements.themeToggle?.addEventListener('click', toggleTheme);
-      elements.searchInput?.addEventListener('input', handleSearch);
-      elements.modalButtons.account?.addEventListener('click', showAccountModal);
-      // elements.offlineMenuBtn?.addEventListener('click', () => offlinePlayback.showOfflineModal());
+    // Header Controls
+    elements.themeToggle?.addEventListener('click', toggleTheme);
+    elements.searchInput?.addEventListener('input', handleSearch);
+    elements.modalButtons.account?.addEventListener('click', showAccountModal);
+    // elements.offlineMenuBtn?.addEventListener('click', () => offlinePlayback.showOfflineModal());
 
-       // Action Buttons
-       elements.shareBtn?.addEventListener('click', showShareModal);
-       elements.openYouTubeBtn?.addEventListener('click', handleOpenYouTube);
+    // Action Buttons
+    elements.shareBtn?.addEventListener('click', showShareModal);
+    elements.openYouTubeBtn?.addEventListener('click', handleOpenYouTube);
 
-      // Tab switching
-      elements.tabs?.forEach(tab => {
+    // Tab switching
+    elements.tabs?.forEach(tab => {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
         tab.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -2747,71 +3172,120 @@
                 switchTab(tab.dataset.tab);
             }
         });
-      });
+    });
 
-      // ---- Event Delegation for Lists (Includes Context Menu Listeners) ----
-      setupListEventListeners(elements.playlist, handlePlaylistClick);
-      setupListEventListeners(elements.historyList, handleHistoryClick);
-      setupListEventListeners(elements.favoritesList, handleFavoritesClick);
-      setupListEventListeners(elements.userPlaylistsList, handleUserPlaylistsClick);
-      setupListEventListeners(elements.playlistElements?.detailContent, handlePlaylistDetailClick);
+    // ---- Event Delegation for Lists (Includes Context Menu Listeners) ----
+    setupListEventListeners(elements.playlist, handlePlaylistClick);
+    setupListEventListeners(elements.historyList, handleHistoryClick);
+    setupListEventListeners(elements.favoritesList, handleFavoritesClick);
+    // setupListEventListeners(elements.userPlaylistsList, handleUserPlaylistsClick); // ← 委譲に統合するので削除
+    setupListEventListeners(elements.playlistElements?.detailContent, handlePlaylistDetailClick);
 
-      // My Playlists Tab Button
-      elements.createPlaylistBtn?.addEventListener('click', showCreatePlaylistModal);
+    // === ↓↓↓ イベント委譲リスナーを追加 (User Playlists Tab) ↓↓↓ ===
+    if (elements.userPlaylistsList) {
+        elements.userPlaylistsList.addEventListener('click', (event) => {
+            const target = event.target;
+            const playlistItem = target.closest('.user-playlist-item');
+            const playBtn = target.closest('.playlist-play-btn');
+            const editBtn = target.closest('.playlist-edit-btn');
+            const deleteBtn = target.closest('.playlist-delete-btn');
+            const emptyCreateBtn = target.closest('#empty-state-create-playlist'); // 空状態の作成ボタンを探す
 
-      // --- Modal Close Buttons ---
-       elements.modalCloseBtns?.forEach(btn => {
-         btn.addEventListener('click', () => {
-             const modalId = btn.dataset.modalId;
-             if (modalId) hideModal(modalId);
-             else console.error("Close button clicked, but data-modal-id is missing:", btn);
-         });
-       });
+            if (playlistItem) { // 既存プレイリストアイテム内の操作
+                const playlistId = playlistItem.dataset.id;
+                if (playBtn) {
+                    event.stopPropagation();
+                    console.log("Play playlist button clicked (not implemented yet)");
+                } else if (editBtn) {
+                    event.stopPropagation();
+                    viewPlaylist(playlistId);
+                } else if (deleteBtn) {
+                    event.stopPropagation();
+                    deletePlaylist(playlistId);
+                } else {
+                    viewPlaylist(playlistId);
+                }
+            } else if (emptyCreateBtn) { // 空状態の作成ボタンがクリックされた場合
+                event.preventDefault();
+                showCreatePlaylistModal(); // モーダル表示関数を呼び出す
+            }
+        });
 
-      // --- Modal Specific Action Buttons ---
-      elements.modalButtons.savePlaylist?.addEventListener('click', saveNewPlaylist);
-      elements.modalButtons.removeFromPlaylist?.addEventListener('click', removeSongFromPlaylist);
-      elements.modalButtons.sharePlaylist?.addEventListener('click', sharePlaylist);
-      elements.modalButtons.copyLink?.addEventListener('click', copyShareLink);
+        // キーボード操作用のリスナーも委譲で追加
+        elements.userPlaylistsList.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                const target = event.target;
+                const playlistItem = target.closest('.user-playlist-item');
+                const emptyCreateBtn = target.closest('#empty-state-create-playlist');
 
-      // --- Account Modal Action Buttons ---
-      elements.modalButtons.showRegister?.addEventListener('click', () => switchAuthSection('register'));
-      elements.modalButtons.showLogin?.addEventListener('click', () => switchAuthSection('login'));
-      elements.modalButtons.login?.addEventListener('click', handleLogin);
-      elements.modalButtons.register?.addEventListener('click', handleRegister);
-      elements.modalButtons.logout?.addEventListener('click', handleLogout);
-      elements.modalButtons.syncData?.addEventListener('click', syncUserData);
-
-       // --- Now Playing Bar Controls ---
-       elements.btnPlayBar?.addEventListener('click', togglePlayPause);
-       elements.btnPrevBar?.addEventListener('click', playPreviousSong);
-       elements.btnNextBar?.addEventListener('click', playNextSong);
-       elements.volumeSliderBar?.addEventListener('input', handleVolumeChangeBar);
-       elements.nowPlayingBarProgressContainer?.addEventListener('click', seekToPositionBar);
-
-       // --- Context Menu Click Handler (Attached once globally) ---
-       elements.contextMenu?.addEventListener('click', handleContextMenuAction);
-
-       // --- Close Modals on Backdrop Click ---
-       if (elements.modals) {
-           Object.entries(elements.modals).forEach(([modalId, modal]) => {
-               if (modal) {
-                   modal.addEventListener('click', (e) => {
-                       if (e.target === modal) hideModal(modalId);
-                   });
-               }
-           });
-       }
-
-       // --- Global Keydowns ---
-       document.addEventListener('keydown', handleGlobalKeyDown);
-
-      // --- Window Resize ---
-      window.addEventListener('resize', resizeCanvas);
-      window.addEventListener('resize', checkBottomControlsVisibility);
-
-      console.log("Event listeners setup complete.");
+                if (playlistItem) {
+                     event.preventDefault();
+                     viewPlaylist(playlistItem.dataset.id);
+                } else if (emptyCreateBtn) {
+                     event.preventDefault();
+                     showCreatePlaylistModal();
+                }
+            }
+        });
+    } else {
+        console.warn("User Playlists List element not found for event delegation.");
     }
+    // === ↑↑↑ イベント委譲リスナーを追加 (User Playlists Tab) ↑↑↑ ===
+
+
+    // --- Modal Close Buttons ---
+    elements.modalCloseBtns?.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const modalId = btn.dataset.modalId;
+            if (modalId) hideModal(modalId);
+            else console.error("Close button clicked, but data-modal-id is missing:", btn);
+        });
+    });
+
+    // --- Modal Specific Action Buttons ---
+    elements.modalButtons.savePlaylist?.addEventListener('click', saveNewPlaylist); // ← 保存ボタンのリスナーはここ
+    elements.modalButtons.removeFromPlaylist?.addEventListener('click', removeSongFromPlaylist);
+    elements.modalButtons.sharePlaylist?.addEventListener('click', sharePlaylist);
+    elements.modalButtons.copyLink?.addEventListener('click', copyShareLink);
+
+    // --- Account Modal Action Buttons ---
+    elements.modalButtons.showRegister?.addEventListener('click', () => switchAuthSection('register'));
+    elements.modalButtons.showLogin?.addEventListener('click', () => switchAuthSection('login'));
+    elements.modalButtons.login?.addEventListener('click', handleLogin);
+    elements.modalButtons.register?.addEventListener('click', handleRegister);
+    elements.modalButtons.logout?.addEventListener('click', handleLogout);
+    elements.modalButtons.syncData?.addEventListener('click', syncUserData);
+
+    // --- Now Playing Bar Controls ---
+    elements.btnPlayBar?.addEventListener('click', togglePlayPause);
+    elements.btnPrevBar?.addEventListener('click', playPreviousSong);
+    elements.btnNextBar?.addEventListener('click', () => playNextSong()); // Pass () if playNextSong returns value
+    elements.volumeSliderBar?.addEventListener('input', handleVolumeChangeBar);
+    elements.nowPlayingBarProgressContainer?.addEventListener('click', seekToPositionBar);
+
+    // --- Context Menu Click Handler (Attached once globally) ---
+    elements.contextMenu?.addEventListener('click', handleContextMenuAction);
+
+    // --- Close Modals on Backdrop Click ---
+    if (elements.modals) {
+        Object.entries(elements.modals).forEach(([modalId, modal]) => {
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) hideModal(modalId);
+                });
+            }
+        });
+    }
+
+    // --- Global Keydowns ---
+    document.addEventListener('keydown', handleGlobalKeyDown);
+
+    // --- Window Resize ---
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('resize', checkBottomControlsVisibility);
+
+    console.log("Event listeners setup complete.");
+}
 
     // Helper for setting up delegated event listeners on lists (Corrected)
     function setupListEventListeners(listElement, clickHandler) {
@@ -3278,58 +3752,63 @@ function renderList(container, items, itemClass, dataAttributeFn, showActions) {
 
 
 function renderUserPlaylists() {
-      const container = elements.userPlaylistsList;
-      if (!container) return;
+    const container = elements.userPlaylistsList;
+    if (!container) {
+        console.error("User playlists container element not found.");
+        return;
+    }
 
-      if (appState.userPlaylists.length === 0) {
-            const actionButtonHTML = appState.loggedInUser
-                 ? `<button id="empty-state-create-playlist" class="focusable"><i class="fas fa-plus mr-1"></i> 新しいプレイリストを作成</button>`
-                 : '<p class="text-sm">プレイリストの作成には<a href="#" id="empty-state-login-link" class="text-primary-color hover:underline">ログイン</a>が必要です。</p>';
+    if (appState.userPlaylists.length === 0) {
+        // ログイン状態に応じてボタンまたはログインリンクを表示
+        const actionButtonHTML = appState.loggedInUser
+            // ↓↓↓ ボタンに正しいIDとスタイルを設定 ↓↓↓
+            ? `<button id="empty-state-create-playlist" class="focusable bg-primary-color text-white px-4 py-2 rounded-full hover:opacity-90 transition-opacity"><i class="fas fa-plus mr-1"></i> 新しいプレイリストを作成</button>`
+            : '<p class="text-sm">プレイリストの作成には<a href="#" id="empty-state-login-link" class="text-primary-color hover:underline focusable">ログイン</a>が必要です。</p>';
 
-            showEmptyMessage(container,
-                "マイプレイリストなし",
-                "自分だけのプレイリストを作成して、お気に入りの曲をまとめましょう。",
-                "fas fa-list-ul",
-                actionButtonHTML
-            );
-             const loginLink = container.querySelector('#empty-state-login-link');
-             loginLink?.addEventListener('click', (e) => {
-                 e.preventDefault();
-                 showAccountModal();
-             });
-            return;
-      }
+        showEmptyMessage(container,
+            "マイプレイリストなし",
+            "自分だけのプレイリストを作成して、お気に入りの曲をまとめましょう。",
+            "fas fa-list-ul",
+            actionButtonHTML
+        );
+        // ログインリンクへのリスナー設定
+        const loginLink = container.querySelector('#empty-state-login-link');
+        loginLink?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAccountModal();
+        });
+        // !!! ボタンへのリスナーは委譲で処理するので、ここでは設定しない !!!
+        return;
+    }
 
-        const fragment = document.createDocumentFragment();
-      appState.userPlaylists.forEach(playlist => {
+    // --- 既存プレイリストのレンダリングロジック ---
+    const fragment = document.createDocumentFragment();
+    appState.userPlaylists.forEach(playlist => {
         const div = document.createElement('div');
         div.className = 'user-playlist-item p-3 flex items-center justify-between cursor-pointer focusable';
         div.dataset.id = playlist.id;
         div.tabIndex = 0;
-
-         div.addEventListener('keydown', (e) => {
-             if (e.key === 'Enter' || e.key === ' ') {
-                 e.preventDefault();
-                 viewPlaylist(playlist.id);
-             }
-         });
+        // キーボード操作用の個別のリスナーは削除 (委譲で対応)
+        // div.addEventListener('keydown', ...);
 
         div.innerHTML = `
-          <span class="font-medium truncate mr-2 flex-grow">${escapeHTML(playlist.name)} <span class="playlist-count">${playlist.songs?.length ?? 0}</span></span>
-          <div class="user-playlist-actions flex-shrink-0 flex items-center gap-2">
-             <button class="playlist-edit-btn text-lg focusable" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)} を表示/編集"><i class="fas fa-eye"></i></button>
-             <button class="playlist-delete-btn text-sm text-red-500 hover:text-red-700 dark:hover:text-red-400 focusable" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)} を削除">
+          <div class="flex-grow overflow-hidden mr-2 min-w-0"> <!-- Added min-w-0 -->
+            <span class="font-medium truncate">${escapeHTML(playlist.name)}</span>
+            <span class="playlist-count ml-1 md:ml-2 flex-shrink-0">${playlist.songs?.length ?? 0}</span> <!-- Adjusted margin -->
+          </div>
+          <div class="user-playlist-actions flex-shrink-0 flex items-center gap-2 md:gap-3"> <!-- Adjusted gap -->
+             <button class="playlist-edit-btn text-lg text-gray-600 hover:text-primary-color dark:text-gray-400 dark:hover:text-primary-color focusable p-1" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)} を表示/編集"><i class="fas fa-eye"></i></button> <!-- Added padding -->
+             <button class="playlist-delete-btn text-lg text-red-500 hover:text-red-700 dark:hover:text-red-400 focusable p-1" data-id="${playlist.id}" aria-label="${escapeHTML(playlist.name)} を削除">
                  <i class="fas fa-trash"></i>
-             </button>
+             </button> <!-- Added padding -->
           </div>
         `;
         fragment.appendChild(div);
-      });
+    });
 
-      container.innerHTML = '';
-      container.appendChild(fragment);
-    }
-
+    container.innerHTML = '';
+    container.appendChild(fragment);
+}
 
     function renderPlaylistDetail(playlist) {
         if (!appState.songs || appState.songs.length === 0) {
@@ -3419,85 +3898,84 @@ function renderUserPlaylists() {
     // Player Control Functions (Keep existing functions)
     // ==========================================================================
     function playSong(originalIndex, keepQueueMode = false) { // Add optional parameter
-      // Add a check for elements existence, though should be fine if called after onPlayerReady
-      if (!elements.currentSongTitle || !elements.currentSongDuration) {
-          console.error("Cannot play song: Title or Duration element not found.");
-          return;
-      }
-      if (!appState.isPlayerReady) {
-        showSnackbar("プレイヤーの準備ができていません。");
+    // Add a check for elements existence, though should be fine if called after onPlayerReady
+    if (!elements.currentSongTitle || !elements.currentSongDuration) {
+        console.error("Cannot play song: Title or Duration element not found.");
         return;
-      }
-
-      // --- Reset Queue Mode (Usually) ---
-      // When a song is explicitly played from a list, typically reset queue context.
-      if (!keepQueueMode) {
-          // Check if the song being played *is* the next logical song in the *current* queue
-          const isNextInQueue = appState.playMode === 'queue' &&
-                                appState.currentQueueIndex >= 0 &&
-                                (appState.currentQueueIndex < appState.queue.length) && // Ensure index is valid
-                                appState.songs[originalIndex]?.id === appState.queue[appState.currentQueueIndex];
-
-          if (!isNextInQueue) {
-                console.log("Explicit play action, resetting queue mode (unless keepQueueMode is true).");
-                appState.playMode = 'playlist';
-                appState.currentQueueIndex = -1;
-                // Optionally clear the queue entirely? Or just the index?
-                // appState.queue = []; // Uncomment to clear queue on explicit play
-          } else {
-               console.log("Playing next song in queue sequence.");
-          }
-      } else {
-           console.log("Keeping queue mode as requested.");
-           // Ensure currentQueueIndex matches the played song if keepQueueMode is true
-           const songId = appState.songs[originalIndex]?.id;
-           const indexInQueue = appState.queue.findIndex(id => id === songId);
-           if (indexInQueue !== -1) {
-               appState.currentQueueIndex = indexInQueue;
-           } else {
-               // Song played with keepQueueMode=true is not in queue? Revert to playlist mode.
-               console.warn("keepQueueMode was true, but played song not found in queue. Reverting to playlist mode.");
-               appState.playMode = 'playlist';
-               appState.currentQueueIndex = -1;
-           }
-      }
-      // --- End Reset Queue Mode ---
-
-        // ... rest of the existing playSong function ...
-      if (!appState.isPlayerReady) {
-        showSnackbar("プレイヤーの準備ができていません。");
-        return;
-      }
-      if (originalIndex >= 0 && originalIndex < appState.songs.length) {
-        const targetSong = appState.songs[originalIndex];
-        if (!targetSong || !targetSong.id) {
-          console.error("Invalid song data at index:", originalIndex, targetSong);
-          showSnackbar("曲データの読み込みに失敗しました。");
-          return;
-        }
-        appState.currentSongIndex = originalIndex;
-        const cleanVideoId = targetSong.id.trim();
-        elements.currentSongTitle.textContent = targetSong.title;
-        elements.currentSongDuration.textContent = targetSong.duration || '--:--';
-        try {
-          if (appState.player && typeof appState.player.loadVideoById === 'function') {
-            console.log(`Loading video: ${cleanVideoId} (${targetSong.title})`);
-            appState.player.loadVideoById(cleanVideoId);
-          } else { throw new Error("Player or loadVideoById not available."); }
-        } catch (error) {
-          console.error("Error loading video:", error);
-          showSnackbar("動画の読み込みに失敗しました。");
-          resetPlayerInfo();
-          return;
-        }
-        updateActiveListItem();
-        updateNowPlayingBar();
-        if(elements.shareBtn) elements.shareBtn.disabled = true;
-        if(elements.openYouTubeBtn) elements.openYouTubeBtn.disabled = true;
-      } else {
-        console.warn("Invalid song index requested:", originalIndex);
-      }
     }
+    if (!appState.isPlayerReady) {
+      showSnackbar("プレイヤーの準備ができていません。");
+      return;
+    }
+
+    // --- Queue Mode Logic ---
+    const songToPlay = appState.songs[originalIndex];
+    if (!songToPlay) {
+        console.error("Invalid originalIndex for playSong:", originalIndex);
+        return;
+    }
+
+    if (!keepQueueMode) {
+        // If not explicitly keeping queue mode, check if the song played matches the *next logical* queue item
+        const isNextInQueue = appState.playMode === 'queue' &&
+                              appState.currentQueueIndex >= -1 && // Allow -1 (meaning queue was playing, now first item)
+                              (appState.currentQueueIndex + 1 < appState.queue.length) &&
+                              appState.queue[appState.currentQueueIndex + 1] === songToPlay.id;
+
+        if (!isNextInQueue) {
+             // If playing a song explicitly from a list (not the next in queue sequence)
+             console.log("Explicit play action, resetting queue mode (unless keepQueueMode is true).");
+             appState.playMode = 'playlist';
+             appState.currentQueueIndex = -1;
+        } else {
+             // If it *is* the next in queue, update the index
+              appState.currentQueueIndex++;
+              console.log("Playing next song in queue sequence, updated index to:", appState.currentQueueIndex);
+        }
+    } else {
+        // keepQueueMode is true, we are likely playing *from* the queue click/action
+        // Ensure currentQueueIndex matches the played song if keepQueueMode is true
+         const indexInQueue = appState.queue.findIndex(id => id === songToPlay.id);
+         if (indexInQueue !== -1) {
+             // Use the index from the data array, which playFromQueue should have set
+             // If playFromQueue didn't set it correctly, this ensures it aligns.
+             appState.currentQueueIndex = indexInQueue;
+         } else {
+             // Song played with keepQueueMode=true is not in queue? Revert to playlist mode.
+             console.warn("keepQueueMode was true, but played song not found in queue. Reverting to playlist mode.");
+             appState.playMode = 'playlist';
+             appState.currentQueueIndex = -1;
+         }
+         console.log("Keeping queue mode. Current index:", appState.currentQueueIndex);
+    }
+    // --- End Queue Mode Logic ---
+
+
+    if (originalIndex >= 0 && originalIndex < appState.songs.length) {
+      appState.currentSongIndex = originalIndex; // Update the main song index
+      const cleanVideoId = songToPlay.id.trim();
+      elements.currentSongTitle.textContent = songToPlay.title;
+      elements.currentSongDuration.textContent = songToPlay.duration || '--:--';
+      try {
+        if (appState.player && typeof appState.player.loadVideoById === 'function') {
+          console.log(`Loading video: ${cleanVideoId} (${songToPlay.title})`);
+          appState.player.loadVideoById(cleanVideoId);
+        } else { throw new Error("Player or loadVideoById not available."); }
+      } catch (error) {
+        console.error("Error loading video:", error);
+        showSnackbar("動画の読み込みに失敗しました。");
+        resetPlayerInfo();
+        return;
+      }
+      updateActiveListItem(); // Highlight in main lists
+      updateNowPlayingBar();
+      renderQueueList(); // <<<====== [ADD/CONFIRM] Update queue highlighting when song changes
+      if(elements.shareBtn) elements.shareBtn.disabled = true; // Disable initially, enable on play
+      if(elements.openYouTubeBtn) elements.openYouTubeBtn.disabled = false; // Enable immediately if song ID is known
+    } else {
+      console.warn("Invalid song index requested:", originalIndex);
+    }
+}
     function togglePlayPause() {
         if (!appState.isPlayerReady || !appState.player) {
             showSnackbar("プレイヤーが利用できません。");
@@ -3519,124 +3997,122 @@ function renderUserPlaylists() {
         }
     }
     function playNextSong() {
-        if (appState.songs.length === 0 && appState.queue.length === 0) return;
+    if (appState.songs.length === 0 && appState.queue.length === 0) return false; // Nothing to play
 
-        let nextSongId = null;
+    let nextSongId = null;
+    let nextOriginalIndex = -1; // Keep track of the index too
 
-        // 1. Check if there's a song inserted via "Play Next" right after the current one
-        // This happens if we are in 'playlist' mode but added a song to play next.
-        if (appState.playMode === 'playlist' && appState.queue.length > 0 && appState.currentQueueIndex === -1) {
-             // Check if the song *after* the current playlist song was inserted at queue index 0
-             // This logic assumes 'playNext' inserts at index 0 when not in queue mode yet.
-             // A more robust way is needed if playNext inserts differently.
-             // Let's simplify: If queue has items and we are in playlist mode, start queue playback.
-             console.log("Playlist mode, but queue exists. Starting queue playback.");
-             appState.playMode = 'queue';
-             appState.currentQueueIndex = 0; // Start from the beginning of the queue
-             nextSongId = appState.queue[appState.currentQueueIndex];
-
-        } else if (appState.playMode === 'queue' && appState.queue.length > 0) {
-            // 2. We are already playing from the queue
-            console.log("Queue mode: Playing next from queue.");
-            const nextQueueIndex = appState.currentQueueIndex + 1;
-            if (nextQueueIndex < appState.queue.length) {
-                // Play next song in the queue
-                appState.currentQueueIndex = nextQueueIndex;
-                nextSongId = appState.queue[appState.currentQueueIndex];
-            } else {
-                // Reached end of the queue
-                console.log("Reached end of queue.");
-                showSnackbar("キューの再生が終了しました");
-                appState.playMode = 'playlist'; // Switch back to playlist mode
-                appState.currentQueueIndex = -1;
-                // Optionally play next from playlist/shuffle, or just stop?
-                // Let's play next from the original playlist context for now
-                const lastPlayedQueueSongId = appState.queue[appState.queue.length - 1];
-                const lastPlayedOriginalIndex = findSongIndexById(lastPlayedQueueSongId);
-
-                // Fallback to finding index based on currentSongIndex if the last queue item isn't in songs array
-                const baseIndex = (lastPlayedOriginalIndex !== -1) ? lastPlayedOriginalIndex : appState.currentSongIndex;
-
-
-                if (appState.isShuffle) {
-                     if (appState.songs.length <= 1) {
-                         const originalIndex = 0;
-                         nextSongId = appState.songs[originalIndex]?.id;
-                     } else {
-                          let nextOriginalIndex;
-                          do {
-                              nextOriginalIndex = Math.floor(Math.random() * appState.songs.length);
-                          } while (nextOriginalIndex === baseIndex && appState.songs.length > 1);
-                           nextSongId = appState.songs[nextOriginalIndex]?.id;
-                     }
-                 } else {
-                    // Play song after the last played original song
-                    const nextOriginalIndex = (baseIndex + 1) % appState.songs.length;
-                     nextSongId = appState.songs[nextOriginalIndex]?.id;
-                 }
-                console.log("Falling back to playlist/shuffle. Next ID:", nextSongId);
-            }
+    // --- Queue Logic ---
+    if (appState.playMode === 'queue' && appState.queue.length > 0) {
+        console.log("Queue mode: Playing next from queue.");
+        const nextQueueIndex = appState.currentQueueIndex + 1;
+        if (nextQueueIndex < appState.queue.length) {
+            // Play next song in the queue
+            appState.currentQueueIndex = nextQueueIndex;
+            nextSongId = appState.queue[appState.currentQueueIndex];
         } else {
-            // 3. No queue involved, play from playlist/shuffle as before
-             console.log("Playlist/Shuffle mode: Playing next.");
-             const currentIndex = appState.currentSongIndex;
-             if (currentIndex === -1) {
-                 // Nothing was playing, play first song from current list (playlist/filtered)
-                 const firstSongId = appState.filteredSongs[0]?.id;
-                  if(firstSongId) {
-                       nextSongId = firstSongId;
-                  } else if (appState.songs.length > 0) {
-                       // Fallback to very first song if filtered list is empty
-                       nextSongId = appState.songs[0]?.id;
-                  }
-             } else if (appState.isShuffle) {
-                if (appState.songs.length <= 1) {
-                     const originalIndex = 0;
-                     nextSongId = appState.songs[originalIndex]?.id;
-                } else {
-                    let nextOriginalIndex;
-                    do {
-                        nextOriginalIndex = Math.floor(Math.random() * appState.songs.length);
-                    } while (nextOriginalIndex === currentIndex && appState.songs.length > 1); // Ensure different song if possible
-                     nextSongId = appState.songs[nextOriginalIndex]?.id;
-                }
-             } else {
-                // Find next song in the *currently filtered* list if possible
-                 const currentFilteredIndex = appState.filteredSongs.findIndex(s => s.id === appState.songs[currentIndex].id);
-                 let nextFilteredIndex = -1;
-                 if (currentFilteredIndex !== -1) {
-                     nextFilteredIndex = (currentFilteredIndex + 1) % appState.filteredSongs.length;
-                 } else {
-                     // If current song not in filtered list (e.g., after search cleared), fallback to original list logic
-                     nextFilteredIndex = (currentIndex + 1) % appState.songs.length; // Use original index
-                     // Try to find the song by index in filtered list; otherwise, use original song ID
-                     nextSongId = appState.songs[nextFilteredIndex]?.id; // Get ID directly
-                 }
+            // Reached end of the queue
+            console.log("Reached end of queue.");
+            showSnackbar("キューの再生が終了しました");
+            appState.playMode = 'playlist';
+            appState.currentQueueIndex = -1;
+            // --- Decide what to do after queue ends ---
+            // Option 1: Stop playback
+            // return false; // Stop here
 
-                 if (!nextSongId && nextFilteredIndex !== -1) { // If ID wasn't set by fallback
-                    nextSongId = appState.filteredSongs[nextFilteredIndex]?.id;
+            // Option 2: Continue with playlist/shuffle (if loopMode === 'all')
+            if (appState.loopMode === 'all') {
+                 // Fallback to playing next from the original playlist context
+                 const lastPlayedQueueSongId = appState.queue[appState.queue.length - 1];
+                 const lastPlayedOriginalIndex = findSongIndexById(lastPlayedQueueSongId);
+                 const baseIndex = (lastPlayedOriginalIndex !== -1) ? lastPlayedOriginalIndex : appState.currentSongIndex;
+
+                 if (appState.isShuffle) { /* ... shuffle logic ... */
+                     if (appState.songs.length <= 1) { nextOriginalIndex = 0; }
+                     else { do { nextOriginalIndex = Math.floor(Math.random() * appState.songs.length); } while (nextOriginalIndex === baseIndex && appState.songs.length > 1); }
+                     nextSongId = appState.songs[nextOriginalIndex]?.id;
+                 } else { /* ... playlist logic ... */
+                     nextOriginalIndex = (baseIndex + 1) % appState.songs.length;
+                     nextSongId = appState.songs[nextOriginalIndex]?.id;
                  }
+                 console.log("Queue ended, looping all, falling back to playlist/shuffle. Next ID:", nextSongId);
+            } else {
+                 // loopMode is 'none', stop after queue ends
+                 return false; // Indicate playback stopped
+            }
+        }
+    // --- Playlist/Shuffle Logic (also handles first play from queue if needed) ---
+    } else if (appState.playMode === 'playlist' && appState.queue.length > 0 && appState.currentQueueIndex === -1) {
+         // Playlist mode, but queue has items and queue wasn't actively playing -> Start Queue
+         console.log("Playlist mode, but queue exists. Starting queue playback.");
+         appState.playMode = 'queue';
+         appState.currentQueueIndex = 0;
+         nextSongId = appState.queue[appState.currentQueueIndex];
+    } else {
+         // Playlist/Shuffle mode (no queue involved or queue finished)
+         console.log("Playlist/Shuffle mode: Playing next.");
+         const currentIndex = appState.currentSongIndex;
+         if (currentIndex === -1) { /* ... logic for nothing playing ... */
+             nextOriginalIndex = 0; // Play first song
+             nextSongId = appState.filteredSongs[nextOriginalIndex]?.id || appState.songs[nextOriginalIndex]?.id;
+         } else if (appState.isShuffle) { /* ... shuffle logic ... */
+             if (appState.songs.length <= 1) { nextOriginalIndex = 0; }
+             else { do { nextOriginalIndex = Math.floor(Math.random() * appState.songs.length); } while (nextOriginalIndex === currentIndex && appState.songs.length > 1); }
+             nextSongId = appState.songs[nextOriginalIndex]?.id;
+         } else { /* ... playlist logic (using filteredSongs) ... */
+             const currentFilteredIndex = appState.filteredSongs.findIndex(s => s.id === appState.songs[currentIndex]?.id);
+             let nextFilteredIndex = -1;
+             if (currentFilteredIndex !== -1) { nextFilteredIndex = (currentFilteredIndex + 1); }
+             else { nextFilteredIndex = (currentIndex + 1); } // Fallback to original index
+
+             // Check if looping is off and we reached the end
+              const isEndOfContext = (appState.loopMode === 'none') && (
+                  (currentFilteredIndex !== -1 && nextFilteredIndex >= appState.filteredSongs.length) ||
+                  (currentFilteredIndex === -1 && nextFilteredIndex >= appState.songs.length)
+              );
+
+             if (isEndOfContext) {
+                 console.log("Reached end of playlist/filtered list (loop none). Stopping.");
+                 resetPlayerInfo(); // Reset UI immediately
+                 return false; // Indicate playback stopped
              }
-        }
 
-        // Finally, find the original index of the determined next song ID and play it
-        if (nextSongId) {
-            const nextOriginalIndex = findSongIndexById(nextSongId);
-            if (nextOriginalIndex !== -1) {
-                playSong(nextOriginalIndex);
-            } else {
-                console.error("Could not find original index for next song ID:", nextSongId);
-                // Handle error, maybe clear queue/mode?
-                appState.playMode = 'playlist';
-                appState.currentQueueIndex = -1;
-            }
-        } else {
-             console.log("No next song could be determined.");
-             // Stop playback or handle end of everything
-              appState.isPlaying = false;
-              resetPlayerInfo(); // Reset UI
-        }
+             // Determine the actual index (wrapping around if needed)
+             if (currentFilteredIndex !== -1) {
+                 nextFilteredIndex = nextFilteredIndex % appState.filteredSongs.length;
+                 nextSongId = appState.filteredSongs[nextFilteredIndex]?.id;
+             } else {
+                 nextOriginalIndex = nextFilteredIndex % appState.songs.length;
+                 nextSongId = appState.songs[nextOriginalIndex]?.id;
+             }
+         }
     }
+
+    // --- Final Play Action ---
+    if (nextSongId) {
+         if (nextOriginalIndex === -1) { // Find index if not already determined
+             nextOriginalIndex = findSongIndexById(nextSongId);
+         }
+
+        if (nextOriginalIndex !== -1) {
+             // Pass keepQueueMode=true only if we are *continuing* queue playback
+             const keepMode = appState.playMode === 'queue';
+            playSong(nextOriginalIndex, keepMode);
+            return true; // Indicate successful playback start
+        } else {
+            console.error("Could not find original index for next song ID:", nextSongId);
+            appState.playMode = 'playlist'; // Reset state on error
+            appState.currentQueueIndex = -1;
+            renderQueueList(); // Update UI on error
+            return false; // Indicate failure
+        }
+    } else {
+         console.log("No next song could be determined (likely end of list with loop none).");
+         resetPlayerInfo(); // Ensure UI is reset
+         return false; // Indicate playback stopped
+    }
+}
+
     function playPreviousSong() {
         if (appState.songs.length === 0 && appState.queue.length === 0) return;
 
@@ -3752,72 +4228,48 @@ function renderUserPlaylists() {
         }
     }
     function handleSongEnd() {
-        console.log("Song ended. Loop mode:", appState.loopMode, "Play mode:", appState.playMode);
+    console.log("Song ended. Loop mode:", appState.loopMode, "Play mode:", appState.playMode);
+    let nextActionTaken = false; // Flag to check if next song was played
 
-        // --- Handle Loop One ---
-        if (appState.loopMode === 'one') {
-            if(appState.player && typeof appState.player.seekTo === 'function' && typeof appState.player.playVideo === 'function') {
-                try {
-                    appState.player.seekTo(0);
-                    appState.player.playVideo();
-                    console.log("Looping one song.");
-                    return; // Don't proceed further if looping one
-                } catch(e){
-                    console.error("Error restarting song for loop one:", e);
-                    // Fall through to play next if loop one fails
-                }
+    // --- Handle Loop One ---
+    if (appState.loopMode === 'one') {
+        if(appState.player && typeof appState.player.seekTo === 'function' && typeof appState.player.playVideo === 'function') {
+            try {
+                appState.player.seekTo(0);
+                appState.player.playVideo();
+                console.log("Looping one song.");
+                nextActionTaken = true;
+                // No need to call renderQueueList here, the playing item remains the same
+                return; // Don't proceed further if looping one
+            } catch(e){
+                console.error("Error restarting song for loop one:", e);
+                // Fall through to play next if loop one fails
             }
-        }
-
-        // --- Check Queue First ---
-        if (appState.playMode === 'queue' && appState.queue.length > 0) {
-            const nextQueueIndex = appState.currentQueueIndex + 1;
-            if (nextQueueIndex < appState.queue.length) {
-                // Play next in queue
-                console.log("Song ended, playing next from queue.");
-                appState.currentQueueIndex = nextQueueIndex;
-                const nextSongId = appState.queue[appState.currentQueueIndex];
-                const nextOriginalIndex = findSongIndexById(nextSongId);
-                if (nextOriginalIndex !== -1) {
-                    playSong(nextOriginalIndex);
-                } else {
-                    console.error("Song ID from queue not found in main list:", nextSongId);
-                    // Skip this song and try the next one in queue? Or switch to playlist?
-                    playNextSong(); // Try playing the logical next song (which might be further in queue or playlist)
-                }
-                return; // Don't proceed to playlist logic
-            } else {
-                // Reached end of queue
-                 console.log("Song ended, reached end of queue.");
-                 showSnackbar("キューの再生が終了しました");
-                 appState.playMode = 'playlist'; // Switch back to playlist mode
-                 appState.currentQueueIndex = -1;
-                 // Now, fall through to playlist/shuffle logic below if loopMode is 'all'
-            }
-        }
-
-        // --- Handle Playlist/Shuffle (If not looping one and queue finished or not active) ---
-        if (appState.loopMode === 'all') {
-            console.log("Song ended, looping all (playlist/shuffle).");
-            playNextSong(); // playNextSong handles playlist/shuffle logic now
-        } else { // loopMode is 'none'
-            // Play next unless it's the absolute last song in the current context (playlist/filtered list)
-             const isLastSongInContext = !appState.isShuffle && (
-                (appState.playMode === 'playlist' && appState.currentSongIndex === appState.songs.length - 1) ||
-                (appState.playMode === 'playlist' && appState.filteredSongs.findIndex(s => s.id === currentSongId()) === appState.filteredSongs.length - 1)
-                // Add more checks if other contexts exist
-             );
-
-             if (isLastSongInContext) {
-                console.log("Song ended, reached end of playlist (loop none). Stopping.");
-                appState.isPlaying = false; // Ensure state is updated
-                resetPlayerInfo(); // Reset UI
-             } else {
-                 console.log("Song ended (loop none), playing next.");
-                 playNextSong(); // Play next according to playlist/shuffle
-             }
         }
     }
+
+    // --- Determine Next Song (Queue or Playlist/Shuffle) ---
+    // playNextSong handles the logic of queue vs playlist/shuffle/loop
+    // In 'all' mode, always play next.
+    // In 'none' mode, play next UNLESS it was the very last song in the context.
+    if (appState.loopMode === 'all' || appState.loopMode === 'none') {
+        console.log(`Song ended, loopMode=${appState.loopMode}. Calling playNextSong.`);
+        // playNextSong will return true if it successfully starts the next song, false otherwise (e.g., end of list with loop none)
+        const didPlayNext = playNextSong(); // Call playNextSong to handle the logic
+        nextActionTaken = didPlayNext; // Update flag based on result
+    }
+
+    // --- Final UI Update ---
+    // Render the queue list after a song ends to reflect any potential change
+    // in highlighting or if the queue was cleared/mode switched.
+    if (!nextActionTaken) {
+         // If no next action was taken (e.g., loop none and last song, or error in playNextSong)
+         resetPlayerInfo(); // Ensure UI reflects the stopped state
+         console.log("Playback stopped (end of list/queue or error).");
+    }
+    // Always call renderQueueList to update highlighting or show empty state
+    renderQueueList();
+}
 
     
     function toggleShuffle() {
@@ -3909,8 +4361,53 @@ function renderUserPlaylists() {
     // ==========================================================================
     // Playlist Functions (Keep existing)
     // ==========================================================================
-    function showCreatePlaylistModal() { if (!appState.loggedInUser) { showAccountModal(); showSnackbar('プレイリスト作成にはログインが必要です'); return; } if(elements.playlistElements.nameInput) elements.playlistElements.nameInput.value = ''; showModal('createPlaylist', elements.playlistElements.nameInput); }
-    function saveNewPlaylist() { if(!elements.playlistElements.nameInput) return; const name = elements.playlistElements.nameInput.value.trim(); if (!name) { showSnackbar('プレイリスト名を入力してください'); elements.playlistElements.nameInput.focus(); return; } const newPlaylist = { id: `pl_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, name: name, songs: [], created: new Date().toISOString() }; appState.userPlaylists.push(newPlaylist); saveUserPlaylists(); renderUserPlaylists(); renderPlaylist(); renderHistoryList(); renderFavoritesList(); hideModal('createPlaylist'); showSnackbar(`プレイリスト「${escapeHTML(name)}」を作成しました`); }
+    // 既存の showCreatePlaylistModal 関数を確認 (おそらく変更不要)
+    function showCreatePlaylistModal() {
+    // ログインチェック
+    if (!appState.loggedInUser) {
+        showAccountModal(); // アカウントモーダルを表示
+        showSnackbar('プレイリスト作成にはログインが必要です');
+        return; // 未ログインならここで終了
+    }
+    // ログイン済みならモーダル表示
+    if(elements.playlistElements.nameInput) {
+        elements.playlistElements.nameInput.value = ''; // 入力欄をクリア
+    } else {
+        console.error("Playlist name input element not found in 'elements'.");
+        return; // 入力欄が見つからない場合は中断
+    }
+    // モーダルを表示し、入力欄にフォーカス
+    showModal('createPlaylist', elements.playlistElements.nameInput);
+}
+function saveNewPlaylist() {
+    if(!elements.playlistElements.nameInput) {
+        console.error("Save cancelled: Playlist name input element not found.");
+        return;
+    }
+    const name = elements.playlistElements.nameInput.value.trim();
+    if (!name) {
+        showSnackbar('プレイリスト名を入力してください');
+        elements.playlistElements.nameInput.focus(); // 入力欄にフォーカスを戻す
+        return; // 名前が空ならここで終了
+    }
+    // 新しいプレイリストオブジェクトを作成
+    const newPlaylist = {
+        id: `pl_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+        name: name,
+        songs: [], // 最初は空
+        created: new Date().toISOString() // 作成日時
+    };
+    // 状態に追加
+    appState.userPlaylists.push(newPlaylist);
+    saveUserPlaylists(); // ローカルストレージに保存
+    renderUserPlaylists(); // マイプレイリストタブを再描画
+    // 他のリスト（メイン、履歴、お気に入り）のドロップダウンも更新するために再描画
+    renderPlaylist();
+    renderHistoryList();
+    renderFavoritesList();
+    hideModal('createPlaylist'); // モーダルを閉じる
+    showSnackbar(`プレイリスト「${escapeHTML(name)}」を作成しました`);
+}
     function deletePlaylist(playlistId) { const playlistIndex = appState.userPlaylists.findIndex(p => p && p.id === playlistId); if (playlistIndex === -1) return; const playlist = appState.userPlaylists[playlistIndex]; if (confirm(`プレイリスト「${escapeHTML(playlist.name)}」を削除してもよろしいですか？`)) { appState.userPlaylists.splice(playlistIndex, 1); saveUserPlaylists(); renderUserPlaylists(); renderPlaylist(); renderHistoryList(); renderFavoritesList(); if (appState.currentSelectedPlaylistId === playlistId) { hideModal('playlistDetail'); appState.currentSelectedPlaylistId = null; } showSnackbar(`プレイリスト「${escapeHTML(playlist.name)}」を削除しました`); } }
     function addSongToPlaylist(songId, playlistId) { const playlist = appState.userPlaylists.find(p => p && p.id === playlistId); const song = findSongById(songId); if (!playlist || !song) { console.error("Playlist or Song not found for adding:", playlistId, songId); showSnackbar("プレイリストまたは曲が見つかりません。"); return; } if (!playlist.songs) playlist.songs = []; if (!playlist.songs.includes(songId)) { playlist.songs.push(songId); saveUserPlaylists(); renderUserPlaylists(); if (appState.currentSelectedPlaylistId === playlistId && elements.modals.playlistDetail?.classList.contains('show')) { renderPlaylistDetail(playlist); } renderPlaylist(); renderHistoryList(); renderFavoritesList(); showSnackbar(`「${escapeHTML(song.title)}」を「${escapeHTML(playlist.name)}」に追加しました`); } else { showSnackbar(`「${escapeHTML(song.title)}」は既に「${escapeHTML(playlist.name)}」に存在します`); } closeAllPlaylistDropdowns(); }
     function viewPlaylist(playlistId) { if (!appState.songs || appState.songs.length === 0) { showSnackbar("楽曲リストの読み込みが完了していません。"); console.warn("[DEBUG] viewPlaylist called before appState.songs was populated."); return; } const playlist = appState.userPlaylists.find(p => p && p.id === playlistId); if (!playlist) { showSnackbar("プレイリストが見つかりません。"); console.error(`[DEBUG] viewPlaylist: Playlist not found for ID: ${playlistId}`); return; } appState.currentSelectedPlaylistId = playlistId; renderPlaylistDetail(playlist); showModal('playlistDetail'); }
@@ -3950,7 +4447,25 @@ function renderUserPlaylists() {
     function formatTime(seconds) { if (isNaN(seconds) || seconds < 0) return '00:00'; seconds = Math.floor(seconds); const minutes = Math.floor(seconds / 60); const remainingSeconds = seconds % 60; return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`; }
     function toggleTheme() { if(!elements.body || !elements.themeToggle) return; elements.body.classList.toggle('dark'); const isDark = elements.body.classList.contains('dark'); elements.themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>'; elements.themeToggle.classList.toggle('btn-active', isDark); elements.themeToggle.classList.toggle('btn-inactive', !isDark); elements.themeToggle.setAttribute('aria-pressed', isDark); localStorage.setItem('reiKikuchiPlayerTheme', isDark ? 'dark' : 'light'); resizeCanvas(); }
     function handleSearch() { if(!elements.searchInput) return; const searchTerm = elements.searchInput.value.toLowerCase().trim(); appState.filteredSongs = appState.songs.filter(song => song && song.title.toLowerCase().includes(searchTerm)); renderPlaylist(); if (appState.currentTab !== 'playlist') { switchTab('playlist'); } }
-    function switchTab(tabName) { if (appState.currentTab === tabName || !elements.tabs || !elements.tabContents) return; appState.currentTab = tabName; elements.tabs.forEach(tab => { const isSelected = tab.dataset.tab === tabName; tab.classList.toggle('active', isSelected); tab.setAttribute('aria-selected', isSelected); tab.setAttribute('tabindex', isSelected ? '0' : '-1'); }); elements.tabContents.forEach(content => { if(content) content.classList.toggle('hidden', content.id !== `${tabName}-tab`); }); updateActiveListItem(); console.log("Switched to tab:", tabName); }
+    function switchTab(tabName) {
+    if (appState.currentTab === tabName || !elements.tabs || !elements.tabContents) return;
+    appState.currentTab = tabName;
+    elements.tabs.forEach(tab => {
+        const isSelected = tab.dataset.tab === tabName;
+        tab.classList.toggle('active', isSelected);
+        tab.setAttribute('aria-selected', isSelected);
+        tab.setAttribute('tabindex', isSelected ? '0' : '-1');
+    });
+    elements.tabContents.forEach(content => {
+        if(content) content.classList.toggle('hidden', content.id !== `${tabName}-tab`);
+    });
+    updateActiveListItem();
+    // If switching to the Queue tab, ensure it's rendered correctly
+    if (tabName === 'queue') {
+        renderQueueList(); // <<<====== [ADD/CONFIRM] Render queue when tab becomes visible
+    }
+    console.log("Switched to tab:", tabName);
+}
     function addToHistory(song) { if (!song || !song.id) return; appState.history = appState.history.filter(item => item && item.id !== song.id); appState.history.push({ ...song }); if (appState.history.length > MAX_HISTORY) { appState.history = appState.history.slice(-MAX_HISTORY); } saveToLocalStorage('reiKikuchiPlayerHistory', appState.history); }
     function toggleFavorite(songId) {
         const songIndexInFavorites = appState.favorites.findIndex(fav => fav && fav.id === songId); const song = findSongById(songId); if (!song) { console.warn("Cannot toggle favorite for unknown song ID:", songId); return; }
@@ -3962,8 +4477,20 @@ function renderUserPlaylists() {
     }
     function updateFavoriteButtonsUI(songId) { const isFavorite = appState.favorites.some(fav => fav && fav.id === songId); const favoriteButtons = document.querySelectorAll(`.favorite-btn[data-id="${songId}"]`); favoriteButtons.forEach(button => { const icon = button.querySelector('i'); if (icon) { icon.classList.toggle('text-red-500', isFavorite); icon.classList.toggle('text-gray-400', !isFavorite); button.setAttribute('aria-label', isFavorite ? 'お気に入り解除' : 'お気に入り登録'); } }); }
     function saveUserPlaylists() { saveToLocalStorage('reiKikuchiPlayerPlaylists', appState.userPlaylists); }
-     function saveToLocalStorage(key, data) { try { localStorage.setItem(key, JSON.stringify(data)); } catch (error) { console.error("Error saving to localStorage:", key, error); showSnackbar("設定の保存中にエラーが発生しました。"); } }
-    function showModal(modalId, elementToFocusInitially = null) { const modal = elements.modals[modalId]; if (!modal || modal.classList.contains('show')) { if (modal && modal.classList.contains('show') && elementToFocusInitially) { setTimeout(() => elementToFocusInitially.focus(), 50); } return; } console.log("Showing modal:", modalId); lastFocusedElement = document.activeElement; modal.style.display = 'flex'; void modal.offsetWidth; modal.classList.add('show'); appState.activeModalId = modalId; if(elements.body) elements.body.style.overflow = 'hidden'; const focusableElements = Array.from( modal.querySelectorAll('button, [href], input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])') ).filter(el => el.offsetParent !== null && !el.disabled); const firstFocusable = focusableElements[0]; const lastFocusable = focusableElements[focusableElements.length - 1]; if (modal._keyDownListener) { modal.removeEventListener('keydown', modal._keyDownListener); } modal._keyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId); modal.addEventListener('keydown', modal._keyDownListener); setTimeout(() => { let targetElement = elementToFocusInitially; if (!targetElement) { if (modalId === 'createPlaylist') targetElement = elements.playlistElements.nameInput; else if (modalId === 'account' && !appState.loggedInUser) targetElement = elements.accountFields.loginEmail; else if (modalId === 'account' && appState.loggedInUser) targetElement = elements.modalButtons.syncData; else if (modalId === 'share') targetElement = elements.modalButtons.copyLink; else if (modalId === 'offline') targetElement = modal.querySelector('#cache-current-btn'); else if (modalId === 'playlistDetail') targetElement = modal.querySelector('.modal-close-btn'); else targetElement = firstFocusable; } if (targetElement && typeof targetElement.focus === 'function') { targetElement.focus(); } else if (modal && typeof modal.focus === 'function') { modal.focus(); } }, 150); }
+    function saveToLocalStorage(key, data) {
+    try {
+        localStorage.setItem(key, JSON.stringify(data));
+        // Optionally save queue whenever other data changes? Or just on unload?
+        // Saving queue here ensures it's relatively up-to-date if the browser crashes.
+        if (key !== LS_KEYS.QUEUE) { // Avoid recursive calls if queue save triggers this
+             localStorage.setItem(LS_KEYS.QUEUE, JSON.stringify(appState.queue));
+        }
+    } catch (error) {
+        console.error("Error saving to localStorage:", key, error);
+        showSnackbar("設定の保存中にエラーが発生しました。");
+    }
+}
+     function showModal(modalId, elementToFocusInitially = null) { const modal = elements.modals[modalId]; if (!modal || modal.classList.contains('show')) { if (modal && modal.classList.contains('show') && elementToFocusInitially) { setTimeout(() => elementToFocusInitially.focus(), 50); } return; } console.log("Showing modal:", modalId); lastFocusedElement = document.activeElement; modal.style.display = 'flex'; void modal.offsetWidth; modal.classList.add('show'); appState.activeModalId = modalId; if(elements.body) elements.body.style.overflow = 'hidden'; const focusableElements = Array.from( modal.querySelectorAll('button, [href], input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])') ).filter(el => el.offsetParent !== null && !el.disabled); const firstFocusable = focusableElements[0]; const lastFocusable = focusableElements[focusableElements.length - 1]; if (modal._keyDownListener) { modal.removeEventListener('keydown', modal._keyDownListener); } modal._keyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId); modal.addEventListener('keydown', modal._keyDownListener); setTimeout(() => { let targetElement = elementToFocusInitially; if (!targetElement) { if (modalId === 'createPlaylist') targetElement = elements.playlistElements.nameInput; else if (modalId === 'account' && !appState.loggedInUser) targetElement = elements.accountFields.loginEmail; else if (modalId === 'account' && appState.loggedInUser) targetElement = elements.modalButtons.syncData; else if (modalId === 'share') targetElement = elements.modalButtons.copyLink; else if (modalId === 'offline') targetElement = modal.querySelector('#cache-current-btn'); else if (modalId === 'playlistDetail') targetElement = modal.querySelector('.modal-close-btn'); else targetElement = firstFocusable; } if (targetElement && typeof targetElement.focus === 'function') { targetElement.focus(); } else if (modal && typeof modal.focus === 'function') { modal.focus(); } }, 150); }
     function hideModal(modalId) { const modal = elements.modals[modalId]; if (!modal || !modal.classList.contains('show')) { return; } modal.classList.remove('show'); if (appState.activeModalId === modalId) { appState.activeModalId = null; } setTimeout(() => { modal.style.display = 'none'; if (modal._keyDownListener) { modal.removeEventListener('keydown', modal._keyDownListener); delete modal._keyDownListener; } const anyOtherModalOpen = Object.values(elements.modals).some( m => m && m.id !== modal.id && m.classList.contains('show') ); if (!anyOtherModalOpen) { if(elements.body) elements.body.style.overflow = ''; if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') { lastFocusedElement.focus(); } lastFocusedElement = null; } if (modalId === 'playlistDetail') appState.currentSelectedPlaylistId = null; if (modalId === 'share' && elements.playlistElements.shareLinkInput) elements.playlistElements.shareLinkInput.value = ''; if (modalId === 'createPlaylist' && elements.playlistElements.nameInput) elements.playlistElements.nameInput.value = ''; }, 300); }
      function handleModalKeyDown(e, firstFocusable, lastFocusable, modalId) { if (e.key === 'Escape') { hideModal(modalId); return; } if (e.key === 'Tab' && firstFocusable) { if (e.shiftKey) { if (document.activeElement === firstFocusable) { lastFocusable?.focus(); e.preventDefault(); } } else { if (document.activeElement === lastFocusable) { firstFocusable?.focus(); e.preventDefault(); } } if (firstFocusable === lastFocusable && document.activeElement === firstFocusable) { e.preventDefault(); } } }
     function showSnackbar(message) { const snackbar = elements.snackbar; if (!snackbar) return; snackbar.textContent = message; if (appState.snackbarTimeoutId) { clearTimeout(appState.snackbarTimeoutId); snackbar.classList.remove('show'); void snackbar.offsetWidth; } snackbar.classList.add('show'); appState.snackbarTimeoutId = setTimeout(() => { snackbar.classList.remove('show'); appState.snackbarTimeoutId = null; }, 3000); }
@@ -4000,6 +4527,24 @@ function renderUserPlaylists() {
 
     // --- Final log ---
     console.log("Player script parsed. Waiting for YouTube API ready event...");
+
+    // Add listener to save queue before unload (optional but good practice)
+window.addEventListener('beforeunload', () => {
+    try {
+        // Only save if queue is not empty? Or always save/remove?
+        // Always saving ensures removal if queue becomes empty.
+        if (appState.queue.length > 0) {
+            localStorage.setItem(LS_KEYS.QUEUE, JSON.stringify(appState.queue));
+            console.log("Queue saved before page unload.");
+        } else {
+            // Remove the key if the queue is empty to avoid loading an empty array later unnecessarily
+            localStorage.removeItem(LS_KEYS.QUEUE);
+            console.log("Empty queue, removed key before page unload.");
+        }
+    } catch (error) {
+        console.error("Error saving queue before unload:", error);
+    }
+});
 
   </script>
 
