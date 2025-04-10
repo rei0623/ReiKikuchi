@@ -1404,6 +1404,124 @@
          line-height: 1;
      }
     /* === End Queue List Styles === */
+    /* === Queue List Styles === */
+    .queue-list { /* Add this if you didn't have it */
+       /* Inherits scrollable-list-area properties */
+    }
+
+    .queue-item {
+      padding: 6px 10px; /* Slightly reduced padding */
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: grab; /* Indicate draggable */
+      border-bottom: 1px solid var(--border-color); /* Separator */
+      transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, opacity 0.2s ease-in-out;
+      user-select: none; /* Prevent text selection during drag */
+      position: relative; /* For pseudo-elements */
+    }
+    .queue-item:last-child {
+        border-bottom: none; /* No border for the last item */
+    }
+
+    .queue-item:hover {
+      background-color: rgba(142, 36, 170, 0.08);
+    }
+    .dark .queue-item:hover {
+      background-color: rgba(187, 134, 252, 0.1);
+    }
+
+    .queue-item.playing { /* Style for the currently playing item in the queue */
+        background-color: rgba(142, 36, 170, 0.15);
+        border-left: 3px solid var(--primary-color);
+        padding-left: 7px; /* Adjust padding for border */
+        font-weight: 600; /* Make playing item stand out */
+    }
+    .dark .queue-item.playing {
+         background-color: rgba(187, 134, 252, 0.2);
+     }
+
+    .queue-item-info {
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        flex-grow: 1;
+        margin-right: 10px;
+        /* Make info area non-draggable trigger */
+        cursor: default;
+    }
+    .queue-item-thumb {
+        width: 32px; /* Smaller thumbnail */
+        height: 32px;
+        border-radius: 4px;
+        margin-right: 10px;
+        flex-shrink: 0;
+        object-fit: cover;
+        pointer-events: none; /* Prevent image dragging */
+    }
+    .queue-item-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        pointer-events: none; /* Prevent text dragging issues */
+    }
+    .queue-item-actions {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .queue-item-actions button {
+        color: var(--text-color);
+        opacity: 0.6;
+        padding: 4px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: opacity 0.2s, color 0.2s;
+    }
+     .queue-item-actions button:hover {
+         opacity: 1;
+         color: var(--primary-color);
+     }
+     /* Drag Handle (Optional but improves UX) */
+     .queue-item-drag-handle {
+        opacity: 0.4;
+        margin-right: 8px;
+        cursor: grab;
+        touch-action: none; /* Prevent scrolling on touch drag */
+     }
+     .queue-item:hover .queue-item-drag-handle {
+        opacity: 0.8;
+     }
+
+     /* Queue Count Badge */
+     #queue-count-badge {
+         display: inline-block; /* Ensure it shows when not hidden */
+         vertical-align: middle;
+         line-height: 1;
+         font-weight: normal; /* Reset weight if tab text is bold */
+     }
+    /* === End Queue List Styles === */
+
+    /* === Drag and Drop Styles === */
+    .queue-item.dragging {
+        opacity: 0.4;
+        cursor: grabbing;
+        background-color: rgba(142, 36, 170, 0.1);
+    }
+    .dark .queue-item.dragging {
+        background-color: rgba(187, 134, 252, 0.15);
+    }
+
+    .queue-item.drag-over {
+        /* Visual indicator where item will be dropped */
+        border-top: 2px solid var(--primary-color);
+        /* background-color: rgba(142, 36, 170, 0.05); */
+    }
+    /* === End Drag and Drop Styles === */
+
   </style>
 </head>
 
@@ -1526,89 +1644,62 @@
                 </div>
             </div>
 
-                        <!-- Playlist Section (Sidebar Column) -->
-                        <div class="playlist-column flex flex-col"> <!-- Column layout for tabs and lists -->
-                            <div class="tabs flex-shrink-0">
-                                <div class="tab active focusable" data-tab="playlist" role="tab" aria-selected="true" tabindex="0">プレイリスト</div>
-                                <div class="tab focusable" data-tab="history" role="tab" aria-selected="false" tabindex="0">再生履歴</div>
-                                <div class="tab focusable" data-tab="favorites" role="tab" aria-selected="false" tabindex="0">お気に入り</div>
-                                <div class="tab focusable" data-tab="user-playlists" role="tab" aria-selected="false" tabindex="0">マイプレイリスト</div>
-                                <div class="tab focusable" data-tab="queue" role="tab" aria-selected="false" tabindex="0">再生キュー <span id="queue-count-badge" class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hidden">0</span></div>
-                            </div>
-
-                <div id="playlist-tab" class="tab-content flex-grow" role="tabpanel">
-                    <div class="playlist scrollable-list-area" id="playlist">
-                        <div class="text-center py-8 text-gray-500">
-                            <i class="fas fa-spinner fa-spin text-3xl mb-4"></i>
-                            <p>楽曲を読み込み中...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="history-tab" class="tab-content hidden flex-grow" role="tabpanel">
-                    <div class="history-list scrollable-list-area" id="history-list">
-                        <div class="text-center py-8 text-gray-500">
-                            <p>再生履歴はありません</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="favorites-tab" class="tab-content hidden flex-grow" role="tabpanel">
-                    <div class="favorites-list scrollable-list-area" id="favorites-list">
-                        <div class="text-center py-8 text-gray-500">
-                            <p>お気に入りに登録された曲はありません</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="user-playlists-tab" class="tab-content hidden flex-grow" role="tabpanel">
-                    <div class="mb-4 flex-shrink-0">
-                        <button id="create-playlist-btn" class="px-3 py-1 rounded-md text-sm mb-4 focusable" style="background-color: var(--primary-color); color: white;">
-                            <i class="fas fa-plus mr-1"></i> 新しいプレイリスト
-                        </button>
-                    </div>
-                    <div class="user-playlists-list scrollable-list-area" id="user-playlists-list">
-                        <div class="text-center py-8 text-gray-500">
-                            <p>マイプレイリストはありません</p>
-                        </div>
-                    </div>
-                </div>
-            </div> <!-- End playlist-column -->
-        </div> <!-- End music-player-grid -->
-    </div> <!-- End music-player -->
-
-<!-- =========== Queue Tab Content =========== -->
-<div id="queue-tab" class="tab-content hidden flex-grow" role="tabpanel">
-    <div class="flex justify-between items-center mb-3 px-1 pt-1">
-         <h3 class="text-sm font-semibold">再生キュー</h3>
-         <button id="clear-queue-btn" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 focusable disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-             <i class="fas fa-trash mr-1"></i>すべてクリア
-         </button>
-    </div>
-    <div class="queue-list scrollable-list-area" id="queue-list">
-        <!-- Queue items will be rendered here by JS -->
-        <div class="text-center py-8 text-gray-500">
-            <p>キューは空です</p>
-        </div>
-    </div>
-</div>
-<!-- =========== End Queue Tab Content =========== -->
-    <!-- Modal Dialogs -->
-    <div id="create-playlist-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="create-playlist-modal-title">
-      <div class="modal-content">
-        <div class="flex justify-between items-center mb-4">
-          <h3 id="create-playlist-modal-title" class="text-lg font-bold">新しいプレイリストを作成</h3>
-          <button class="modal-close-btn close-modal-btn focusable" data-modal-id="createPlaylist" aria-label="閉じる">×</button>
-        </div>
-        <div class="mb-4">
-          <label for="playlist-name-input" class="block text-sm mb-2">プレイリスト名</label>
-          <input type="text" id="playlist-name-input" class="w-full px-3 py-2 border rounded focusable" style="border-color: var(--border-color); background-color: var(--card-color);">
-        </div>
-        <div>
-          <button id="save-playlist-btn" class="px-4 py-2 rounded text-white focusable" style="background-color: var(--primary-color);">保存</button>
-        </div>
+                      
+                       <!-- ========== Playlist Section (Sidebar Column) ========== -->
+<div class="playlist-column flex flex-col"> <!-- Column layout for tabs and lists -->
+  <div class="tabs flex-shrink-0">
+      <div class="tab active focusable" data-tab="playlist" role="tab" aria-selected="true" tabindex="0">プレイリスト</div>
+      <div class="tab focusable" data-tab="history" role="tab" aria-selected="false" tabindex="0">再生履歴</div>
+      <div class="tab focusable" data-tab="favorites" role="tab" aria-selected="false" tabindex="0">お気に入り</div>
+      <div class="tab focusable" data-tab="user-playlists" role="tab" aria-selected="false" tabindex="0">マイプレイリスト</div>
+      <!-- ↓ Queue Tab: Add id to badge span -->
+      <div class="tab focusable" data-tab="queue" role="tab" aria-selected="false" tabindex="0">
+          再生キュー <span id="queue-count-badge" class="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hidden">0</span>
       </div>
-    </div>
+  </div>
+
+  <div id="playlist-tab" class="tab-content flex-grow" role="tabpanel">
+      <div class="playlist scrollable-list-area" id="playlist">
+          <!-- Playlist content -->
+      </div>
+  </div>
+
+  <div id="history-tab" class="tab-content hidden flex-grow" role="tabpanel">
+      <div class="history-list scrollable-list-area" id="history-list">
+          <!-- History content -->
+      </div>
+  </div>
+
+  <div id="favorites-tab" class="tab-content hidden flex-grow" role="tabpanel">
+      <div class="favorites-list scrollable-list-area" id="favorites-list">
+          <!-- Favorites content -->
+      </div>
+  </div>
+
+  <div id="user-playlists-tab" class="tab-content hidden flex-grow" role="tabpanel">
+      <!-- User Playlists content -->
+  </div>
+
+  <!-- ↓↓↓ Queue Tab Content: Updated structure ↓↓↓ -->
+  <div id="queue-tab" class="tab-content hidden flex-grow" role="tabpanel">
+      <div class="flex justify-between items-center mb-3 px-1 pt-1">
+           <h3 class="text-sm font-semibold">再生キュー</h3>
+           <button id="clear-queue-btn" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 focusable disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+               <i class="fas fa-trash mr-1"></i>すべてクリア
+           </button>
+      </div>
+      <div class="queue-list scrollable-list-area" id="queue-list">
+          <!-- Queue items will be rendered here by JS -->
+           <div class="empty-state-container text-center py-8 text-gray-500 dark:text-gray-400">
+               <i class="fas fa-list-ol empty-state-icon"></i>
+               <h4 class="empty-state-title">キューは空です</h4>
+               <p class="empty-state-message">曲を右クリックして「キューに追加」を選択するか、<br>曲を再生すると自動的にキューに追加されることがあります。</p>
+           </div>
+      </div>
+  </div>
+   <!-- ↑↑↑ End Queue Tab Content ↑↑↑ -->
+
+</div> <!-- End playlist-column -->
 
     <div id="share-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
       <div class="modal-content">
@@ -1827,6 +1918,7 @@
   <!-- YouTube API -->
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
+    
     // ==========================================================================
     // Constants
     // ==========================================================================
@@ -3726,6 +3818,8 @@ function renderUserPlaylists() {
              }
         }
     }
+
+    
     function toggleShuffle() {
       appState.isShuffle = !appState.isShuffle;
       const isActive = appState.isShuffle;
