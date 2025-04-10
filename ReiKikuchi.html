@@ -1556,12 +1556,10 @@
     <div id="profile-section" class="bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 rounded-lg p-4 mb-6 shadow-md transition-all duration-300 ease-in-out mx-2 md:mx-0"> <!-- Add horizontal margin for mobile -->
       <div class="flex flex-col md:flex-row items-center justify-between">
         <div class="flex items-center mb-4 md:mb-0">
-                    <!-- ========== プロフィール画像の表示部分 (HTML) ========== -->
-<div class="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-lg mr-4 flex-shrink-0">
-  <!-- ↓↓↓ id="profile-image" と ローディング用クラスを追加 ↓↓↓ -->
-  <img src="" alt="Rei Kikuchi" id="profile-image" class="w-full h-full object-cover bg-gray-300 dark:bg-gray-600">
-  <!-- ↑↑↑ id と ローディング用クラスを追加 ↑↑↑ -->
-</div>
+          <div class="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-4 border-white dark:border-gray-800 shadow-lg mr-4 flex-shrink-0">
+            <img src="https://i.ytimg.com/vi/o3BudA6Qm6Y/hqdefault.jpg" alt="Rei Kikuchi" class="w-full h-full object-cover">
+          </div>
+          <div>
             <h2 class="text-xl md:text-2xl font-bold">Rei Kikuchi</h2>
             <p class="text-sm md:text-base opacity-75">音楽クリエイター / Riffusion アーティスト</p>
           </div>
@@ -2021,9 +2019,6 @@
     elements = {
         app: document.getElementById('app'),
         body: document.body,
-         // ↓↓↓ プロフィール画像要素の参照を追加 ↓↓↓
-         profileImage: document.getElementById('profile-image'), // プロフィール画像
-        // ↑↑↑ プロフィール画像要素の参照を追加 ↑↑↑
         playlist: document.getElementById('playlist'),
         historyList: document.getElementById('history-list'),
         favoritesList: document.getElementById('favorites-list'),
@@ -2139,7 +2134,6 @@
     if (!elements.playlistElements.nameInput) console.error("ERROR: Playlist Name Input (#playlist-name-input) not found!");
     if (!elements.queueList) console.error("ERROR: Queue List container (#queue-list) not found!");
     if (!elements.queueEmptyState) console.error("ERROR: Queue Empty State container (#queue-tab .empty-state-container) not found!");
-    if (!elements.profileImage) console.error("ERROR: Profile Image element (#profile-image) not found!"); // <<< チェック追加
     // ... other checks ...
 }
 
@@ -2864,7 +2858,7 @@ function handleDragEnd(e) {
       }
     }
 
-    async function onPlayerReady(event) { // <<< 'async' を追加
+    function onPlayerReady(event) {
     console.log("Player Ready");
     initializeElements();
     appState.isPlayerReady = true;
@@ -2873,55 +2867,15 @@ function handleDragEnd(e) {
     if(event.target && typeof event.target.setVolume === 'function') {
         try { event.target.setVolume(appState.volume); } catch (e) { console.warn("Failed to set initial volume", e)}
     }
-
-    // --- 楽曲リストとプロフィール画像の読み込みを並行処理 ---
-    try {
-        await Promise.all([ // <<< Promise.all で囲む
-            loadSongsFromYouTube(), // 曲リスト読み込み
-            (async () => { // <<< プロフィール画像取得用の即時実行非同期関数
-                const channelDetails = await youtubeAPI.getChannelDetails(youtubeAPI.channelId);
-                if (channelDetails && channelDetails.thumbnailUrl && elements.profileImage) {
-                    elements.profileImage.src = channelDetails.thumbnailUrl;
-                    // 画像読み込み後にローディング背景を削除 (任意)
-                    elements.profileImage.onload = () => {
-                        elements.profileImage.classList.remove('bg-gray-300', 'dark:bg-gray-600');
-                    };
-                    elements.profileImage.onerror = () => { // エラー処理
-                         console.error("Failed to load profile image:", channelDetails.thumbnailUrl);
-                         // 必要であれば代替画像などを表示
-                    };
-                } else {
-                    console.warn("Could not get channel details or thumbnail URL.");
-                    // ローディング背景を削除 (画像が取得できなかった場合)
-                    if(elements.profileImage) {
-                       elements.profileImage.classList.remove('bg-gray-300', 'dark:bg-gray-600');
-                       // 代替アイコンなどを表示しても良い
-                       // elements.profileImage.src = 'path/to/default/icon.png';
-                    }
-                }
-            })() // <<< 即時実行
-        ]);
-
-        // 上記の処理が両方完了してからユーザーデータ等をロード
-        loadUserData();
-        renderQueueList();
-
-    } catch (error) {
-        console.error("Error during initial data loading (songs/profile):", error);
-        showSnackbar("初期データの読み込み中にエラーが発生しました。");
-        // エラー時もユーザーデータロードは試みる
-        loadUserData();
-        renderQueueList();
-    }
-
-    // --- 残りの初期化処理 ---
+    loadSongsFromYouTube(); // Load songs first
+    loadUserData(); // Load history, favs, playlists, queue etc.
+    renderQueueList(); // <<<====== [ADD] Render initial queue state after loading data
     initAudioAnalyser();
-    setupEventListeners();
+    setupEventListeners(); // Setup UI interactions *after* elements are initialized
     handleUrlParams();
     checkBottomControlsVisibility();
     setupYouTubeSync();
     // offlinePlayback.init();
-
     console.log("Player initialization sequence complete.");
 }
 
@@ -4536,152 +4490,9 @@ function saveNewPlaylist() {
         showSnackbar("設定の保存中にエラーが発生しました。");
     }
 }
-function showModal(modalId, elementToFocusInitially = null) {
-    const modal = elements.modals[modalId];
-    if (!modal || modal.classList.contains('show')) {
-        if (modal && modal.classList.contains('show') && elementToFocusInitially) {
-            setTimeout(() => {
-                if (elementToFocusInitially && typeof elementToFocusInitially.focus === 'function') {
-                    elementToFocusInitially.focus();
-                }
-             }, 50);
-         }
-         return;
-    }
-
-    console.log("Showing modal:", modalId);
-    lastFocusedElement = document.activeElement;
-    modal.style.display = 'flex';
-    void modal.offsetWidth; // Reflow for transition
-    modal.classList.add('show');
-    appState.activeModalId = modalId; // <<< activeModalId を設定
-
-    // ↓↓↓ body要素の存在確認とoverflow設定 ↓↓↓
-    if (elements.body) {
-        console.log("Setting body overflow to hidden.");
-        elements.body.style.overflow = 'hidden';
-    } else {
-        console.error("Body element not found when trying to hide overflow.");
-    }
-    // ↑↑↑ body要素の存在確認とoverflow設定 ↑↑↑
-
-    // --- フォーカス処理 ---
-    const focusableElements = Array.from( modal.querySelectorAll('button, [href], input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])') ).filter(el => el.offsetParent !== null && !el.disabled);
-    const firstFocusable = focusableElements[0];
-    const lastFocusable = focusableElements[focusableElements.length - 1];
-
-    if (modal._keyDownListener) {
-        modal.removeEventListener('keydown', modal._keyDownListener);
-    }
-    modal._keyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId);
-    modal.addEventListener('keydown', modal._keyDownListener);
-
-    setTimeout(() => {
-        let targetElement = elementToFocusInitially;
-        if (!targetElement) {
-           if (modalId === 'createPlaylist') targetElement = elements.playlistElements.nameInput;
-           else if (modalId === 'account' && !appState.loggedInUser) targetElement = elements.accountFields.loginEmail;
-           else if (modalId === 'account' && appState.loggedInUser) targetElement = elements.modalButtons.syncData;
-           else if (modalId === 'share') targetElement = elements.modalButtons.copyLink;
-           else if (modalId === 'offline') targetElement = modal.querySelector('#cache-current-btn'); // Assuming ID in offline modal
-           else if (modalId === 'playlistDetail') targetElement = modal.querySelector('.modal-close-btn'); // Try close button first
-           else targetElement = firstFocusable; // Default to first focusable
-        }
-
-        if (targetElement && typeof targetElement.focus === 'function') {
-            console.log("Focusing element:", targetElement);
-            targetElement.focus();
-        } else if (firstFocusable && typeof firstFocusable.focus === 'function') {
-             console.log("Focusing first focusable element:", firstFocusable);
-             firstFocusable.focus();
-        } else if (modal && typeof modal.focus === 'function') {
-            console.log("Focusing modal container.");
-            modal.setAttribute('tabindex', '-1'); // Make modal focusable if it wasn't
-            modal.focus();
-        } else {
-            console.warn("No element found to focus in modal:", modalId);
-        }
-    }, 150);
-}
-     function hideModal(modalId) {
-    const modal = elements.modals[modalId];
-    if (!modal || !modal.classList.contains('show')) {
-        console.log(`Modal ${modalId} already hidden or not found.`);
-        return;
-    }
-
-    console.log(`Attempting to hide modal: ${modalId}. Current activeModalId: ${appState.activeModalId}`);
-    // ログ用にモーダルの状態を出力 (任意)
-    /*
-    Object.entries(elements.modals).forEach(([key, m]) => {
-        if (m) { console.log(`  Modal state - ${key}: ${m.classList.contains('show') ? 'SHOWN' : 'HIDDEN'}`); }
-        else { console.log(`  Modal state - ${key}: NOT FOUND in elements`); }
-    });
-    */
-
-    modal.classList.remove('show');
-
-    const elementToRestoreFocus = lastFocusedElement;
-    lastFocusedElement = null; // 先にクリア
-
-    setTimeout(() => {
-        modal.style.display = 'none';
-        if (modal._keyDownListener) {
-            modal.removeEventListener('keydown', modal._keyDownListener);
-            delete modal._keyDownListener;
-        }
-
-        // --- ↓↓↓ 元のスクロール解除ロジックに戻す ↓↓↓ ---
-        // 他に表示されているモーダルがないかチェック
-        const anyOtherModalOpen = Object.values(elements.modals).some(
-            m => m && m.id !== modalId && m.classList.contains('show')
-        );
-
-        console.log(`Checking other modals after hiding ${modalId}: anyOtherModalOpen = ${anyOtherModalOpen}`);
-
-        // 他のモーダルが開いていなければ、bodyのoverflowを元に戻す
-        if (!anyOtherModalOpen && elements.body) {
-            console.log("Restoring body overflow.");
-            elements.body.style.overflow = ''; // デフォルトに戻す
-        } else if (anyOtherModalOpen) {
-            console.log("Another modal is still open, keeping body overflow hidden.");
-        } else if (!elements.body) {
-             console.error("Body element not found when trying to restore overflow.");
-        }
-         // --- ↑↑↑ 元のスクロール解除ロジックに戻す ↑↑↑ ---
-
-
-        // activeModalId のクリア
-         if (appState.activeModalId === modalId) {
-             appState.activeModalId = null;
-             console.log(`Cleared activeModalId for ${modalId}`);
-         } else {
-              // このログは通常表示されないはずだが、もし出たら hideModal が予期せず呼ばれた可能性がある
-              console.warn(`Tried to hide ${modalId}, but activeModalId was ${appState.activeModalId}`);
-         }
-
-
-        // フォーカス復元ロジック
-        if (elementToRestoreFocus && typeof elementToRestoreFocus.focus === 'function') {
-            console.log("Restoring focus to:", elementToRestoreFocus);
-             if (document.body.contains(elementToRestoreFocus)) {
-                 setTimeout(() => elementToRestoreFocus.focus(), 0);
-             } else {
-                 console.warn("Element to restore focus is no longer in the DOM.");
-             }
-        } else {
-             console.log("No specific element to restore focus to.");
-        }
-
-        // モーダルごとの状態リセット
-        if (modalId === 'playlistDetail') appState.currentSelectedPlaylistId = null;
-        if (modalId === 'share' && elements.playlistElements.shareLinkInput) elements.playlistElements.shareLinkInput.value = '';
-        if (modalId === 'createPlaylist' && elements.playlistElements.nameInput) elements.playlistElements.nameInput.value = '';
-        console.log(`Cleanup for modal ${modalId} complete.`);
-
-    }, 300); // モーダルのトランジション時間
-}
-    function handleModalKeyDown(e, firstFocusable, lastFocusable, modalId) { if (e.key === 'Escape') { hideModal(modalId); return; } if (e.key === 'Tab' && firstFocusable) { if (e.shiftKey) { if (document.activeElement === firstFocusable) { lastFocusable?.focus(); e.preventDefault(); } } else { if (document.activeElement === lastFocusable) { firstFocusable?.focus(); e.preventDefault(); } } if (firstFocusable === lastFocusable && document.activeElement === firstFocusable) { e.preventDefault(); } } }
+     function showModal(modalId, elementToFocusInitially = null) { const modal = elements.modals[modalId]; if (!modal || modal.classList.contains('show')) { if (modal && modal.classList.contains('show') && elementToFocusInitially) { setTimeout(() => elementToFocusInitially.focus(), 50); } return; } console.log("Showing modal:", modalId); lastFocusedElement = document.activeElement; modal.style.display = 'flex'; void modal.offsetWidth; modal.classList.add('show'); appState.activeModalId = modalId; if(elements.body) elements.body.style.overflow = 'hidden'; const focusableElements = Array.from( modal.querySelectorAll('button, [href], input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])') ).filter(el => el.offsetParent !== null && !el.disabled); const firstFocusable = focusableElements[0]; const lastFocusable = focusableElements[focusableElements.length - 1]; if (modal._keyDownListener) { modal.removeEventListener('keydown', modal._keyDownListener); } modal._keyDownListener = (e) => handleModalKeyDown(e, firstFocusable, lastFocusable, modalId); modal.addEventListener('keydown', modal._keyDownListener); setTimeout(() => { let targetElement = elementToFocusInitially; if (!targetElement) { if (modalId === 'createPlaylist') targetElement = elements.playlistElements.nameInput; else if (modalId === 'account' && !appState.loggedInUser) targetElement = elements.accountFields.loginEmail; else if (modalId === 'account' && appState.loggedInUser) targetElement = elements.modalButtons.syncData; else if (modalId === 'share') targetElement = elements.modalButtons.copyLink; else if (modalId === 'offline') targetElement = modal.querySelector('#cache-current-btn'); else if (modalId === 'playlistDetail') targetElement = modal.querySelector('.modal-close-btn'); else targetElement = firstFocusable; } if (targetElement && typeof targetElement.focus === 'function') { targetElement.focus(); } else if (modal && typeof modal.focus === 'function') { modal.focus(); } }, 150); }
+    function hideModal(modalId) { const modal = elements.modals[modalId]; if (!modal || !modal.classList.contains('show')) { return; } modal.classList.remove('show'); if (appState.activeModalId === modalId) { appState.activeModalId = null; } setTimeout(() => { modal.style.display = 'none'; if (modal._keyDownListener) { modal.removeEventListener('keydown', modal._keyDownListener); delete modal._keyDownListener; } const anyOtherModalOpen = Object.values(elements.modals).some( m => m && m.id !== modal.id && m.classList.contains('show') ); if (!anyOtherModalOpen) { if(elements.body) elements.body.style.overflow = ''; if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') { lastFocusedElement.focus(); } lastFocusedElement = null; } if (modalId === 'playlistDetail') appState.currentSelectedPlaylistId = null; if (modalId === 'share' && elements.playlistElements.shareLinkInput) elements.playlistElements.shareLinkInput.value = ''; if (modalId === 'createPlaylist' && elements.playlistElements.nameInput) elements.playlistElements.nameInput.value = ''; }, 300); }
+     function handleModalKeyDown(e, firstFocusable, lastFocusable, modalId) { if (e.key === 'Escape') { hideModal(modalId); return; } if (e.key === 'Tab' && firstFocusable) { if (e.shiftKey) { if (document.activeElement === firstFocusable) { lastFocusable?.focus(); e.preventDefault(); } } else { if (document.activeElement === lastFocusable) { firstFocusable?.focus(); e.preventDefault(); } } if (firstFocusable === lastFocusable && document.activeElement === firstFocusable) { e.preventDefault(); } } }
     function showSnackbar(message) { const snackbar = elements.snackbar; if (!snackbar) return; snackbar.textContent = message; if (appState.snackbarTimeoutId) { clearTimeout(appState.snackbarTimeoutId); snackbar.classList.remove('show'); void snackbar.offsetWidth; } snackbar.classList.add('show'); appState.snackbarTimeoutId = setTimeout(() => { snackbar.classList.remove('show'); appState.snackbarTimeoutId = null; }, 3000); }
     function handleGlobalKeyDown(event) { const activeElement = document.activeElement; const isInputFocused = activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName); if (appState.activeModalId || (isInputFocused && event.key !== 'Escape')) { return; } switch (event.key) { case ' ': if (!isInputFocused) { event.preventDefault(); togglePlayPause(); } break; case 'ArrowRight': event.preventDefault(); if (event.ctrlKey || event.metaKey) seekRelative(SEEK_STEP); else playNextSong(); break; case 'ArrowLeft': event.preventDefault(); if (event.ctrlKey || event.metaKey) seekRelative(-SEEK_STEP); else playPreviousSong(); break; case 'ArrowUp': if (!elements.volumeSlider || activeElement !== elements.volumeSlider) { event.preventDefault(); adjustVolume(VOLUME_STEP); } break; case 'ArrowDown': if (!elements.volumeSlider || activeElement !== elements.volumeSlider) { event.preventDefault(); adjustVolume(-VOLUME_STEP); } break; case 'f': if (!isInputFocused) { event.preventDefault(); elements.searchInput?.focus(); } break; case 't': event.preventDefault(); toggleTheme(); break; } }
     function drawVisualizer() { if (!appState.visualizer.canvasCtx || !appState.visualizer.dataArray || !appState.visualizer.canvas) { appState.visualizer.animationFrameId = null; return; } const bufferLength = appState.visualizer.bufferLength; const dataArray = appState.visualizer.dataArray; const isPlayingNow = appState.isPlaying; let hasPositiveValue = false; for (let i = 0; i < bufferLength; i++) { if (isPlayingNow) { const timeFactor = Date.now() * 0.002 + i * 0.08; const randomFactor = Math.random() * 30; const sineValue = (Math.sin(timeFactor) + 1) / 2; const baseHeight = 10; dataArray[i] = Math.max(0, Math.min(255, baseHeight + (sineValue * 150) + randomFactor)); if (dataArray[i] > 1) hasPositiveValue = true; } else { dataArray[i] = Math.max(0, dataArray[i] * 0.96 - 0.5); if (dataArray[i] > 1) hasPositiveValue = true; } } const canvas = appState.visualizer.canvas; const canvasCtx = appState.visualizer.canvasCtx; const width = canvas.width; const height = canvas.height; if (width <= 0 || height <= 0) { appState.visualizer.animationFrameId = null; return; } canvasCtx.clearRect(0, 0, width, height); const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#8e24aa'; const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary-color').trim() || '#5e35b1'; const gradient = canvasCtx.createLinearGradient(0, 0, 0, height); gradient.addColorStop(0, primaryColor); gradient.addColorStop(1, secondaryColor); canvasCtx.fillStyle = gradient; const barWidthRatio = 0.7; const spacingRatio = 0.4; const totalBarWidth = width / bufferLength; const barWidth = Math.max(1, totalBarWidth * barWidthRatio); const spacing = Math.max(1, totalBarWidth * spacingRatio); const totalBarAndSpaceWidth = barWidth + spacing; const numBarsThatFit = totalBarAndSpaceWidth > 0 ? Math.floor((width + spacing) / totalBarAndSpaceWidth) : 0; const actualBufferLength = Math.min(bufferLength, numBarsThatFit); const totalDrawingWidth = actualBufferLength * totalBarAndSpaceWidth - (actualBufferLength > 0 ? spacing : 0); const offsetX = Math.max(0, (width - totalDrawingWidth) / 2); let x = offsetX; for (let i = 0; i < actualBufferLength; i++) { const rawHeight = (dataArray[i] / 255) * height * 0.95; const barHeight = Math.max(1, rawHeight); const borderRadius = Math.min(3, barWidth / 3); canvasCtx.beginPath(); const startX = Math.round(x); const startY = Math.round(height); const endX = Math.round(x + barWidth); const endY = Math.round(height - barHeight); if (barHeight > 1) { canvasCtx.moveTo(startX, startY); canvasCtx.lineTo(startX, endY + borderRadius); canvasCtx.quadraticCurveTo(startX, endY, startX + borderRadius, endY); canvasCtx.lineTo(endX - borderRadius, endY); canvasCtx.quadraticCurveTo(endX, endY, endX, endY + borderRadius); canvasCtx.lineTo(endX, startY); } canvasCtx.fill(); x += totalBarAndSpaceWidth; } if (isPlayingNow || hasPositiveValue) { appState.visualizer.animationFrameId = requestAnimationFrame(drawVisualizer); } else { appState.visualizer.animationFrameId = null; console.log("[DEBUG] Visualizer loop stopped naturally (decayed)."); } }
@@ -4694,168 +4505,8 @@ function showModal(modalId, elementToFocusInitially = null) {
     // ==========================================================================
     // YouTube API Object (Keep existing)
     // ==========================================================================
-    const youtubeAPI = {
-    apiKey: 'AIzaSyCbzvjP9vFa5I8N1qLI5H9LUpYim0nkQS4', // あなたのAPIキーを使用
-    channelId: 'UCYAuSEKhuk3v4ZKzm5Lqb1Q',
-
-    // --- ↓↓↓ チャンネル詳細取得メソッドを追加 ↓↓↓ ---
-    async getChannelDetails(channelId) {
-        if (!channelId) return null;
-        console.log(`Fetching details for channel: ${channelId}...`);
-        try {
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channelId}&key=${this.apiKey}`);
-            if (!response.ok) {
-                let errorMsg = `YouTube Channels API error: ${response.status}`;
-                try {
-                    const errorData = await response.json();
-                    errorMsg = `YouTube Channels API error: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`;
-                } catch (e) {}
-                throw new Error(errorMsg);
-            }
-            const data = await response.json();
-            if (data.items && data.items.length > 0) {
-                const snippet = data.items[0].snippet;
-                const thumbnailUrl = snippet.thumbnails.high?.url || snippet.thumbnails.medium?.url || snippet.thumbnails.default?.url;
-                console.log(`Found channel details. Thumbnail: ${thumbnailUrl}`);
-                return {
-                    title: snippet.title,
-                    description: snippet.description,
-                    thumbnailUrl: thumbnailUrl
-                };
-            } else {
-                console.warn("Channel not found or no details available.");
-                return null;
-            }
-        } catch (error) {
-            console.error('YouTube Channels API error:', error);
-            showSnackbar('チャンネル情報の取得に失敗しました');
-            return null;
-        }
-    },
-    // --- ↑↑↑ チャンネル詳細取得メソッドを追加 ↑↑↑ ---
-
-    async getLatestVideos(maxResults = 15) {
-        console.log(`Fetching latest ${maxResults} videos...`);
-        try {
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${this.channelId}&maxResults=${maxResults}&order=date&type=video&key=${this.apiKey}`);
-            if (!response.ok) {
-                let errorMsg = `YouTube Search API error: ${response.status}`;
-                try { const errorData = await response.json(); errorMsg = `YouTube Search API error: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`; } catch (e) {}
-                throw new Error(errorMsg);
-            }
-            const data = await response.json();
-            if (!data.items) { console.warn("No items found in YouTube search response."); return []; }
-            console.log(`Found ${data.items.length} videos from search.`);
-            return data.items.map(item => ({
-                id: item.id.videoId,
-                title: item.snippet.title,
-                description: item.snippet.description,
-                thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
-                publishedAt: item.snippet.publishedAt,
-                duration: null
-            }));
-        } catch (error) {
-            console.error('YouTube Search API error:', error);
-            showSnackbar('YouTube動画の取得に失敗しました');
-            return [];
-        }
-    },
-
-    async getVideoDetails(videoIds) {
-        if (!videoIds || videoIds.length === 0) return [];
-        console.log(`Fetching details for ${videoIds.length} video(s)...`);
-        const MAX_IDS_PER_REQUEST = 50;
-        let allDetails = [];
-        for (let i = 0; i < videoIds.length; i += MAX_IDS_PER_REQUEST) {
-            const chunkIds = videoIds.slice(i, i + MAX_IDS_PER_REQUEST);
-            try {
-                const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${chunkIds.join(',')}&key=${this.apiKey}`);
-                if (!response.ok) {
-                    let errorMsg = `YouTube Videos API error: ${response.status}`;
-                    try { const errorData = await response.json(); errorMsg = `YouTube Videos API error: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`; } catch (e) {}
-                    throw new Error(errorMsg);
-                }
-                const data = await response.json();
-                if (data.items) {
-                    const chunkDetails = data.items.map(item => ({
-                        id: item.id,
-                        duration: item.contentDetails?.duration ? this.convertDuration(item.contentDetails.duration) : '--:--',
-                        viewCount: item.statistics?.viewCount
-                    }));
-                    allDetails = allDetails.concat(chunkDetails);
-                }
-            } catch (error) {
-                console.error(`YouTube Videos API error (chunk ${i / MAX_IDS_PER_REQUEST}):`, error);
-                showSnackbar('動画詳細の一部の取得に失敗しました');
-            }
-        }
-        console.log(`Fetched details for ${allDetails.length} video(s).`);
-        return allDetails;
-    },
-
-    convertDuration(isoDuration) {
-        const regex = /P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/;
-        const matches = isoDuration.match(regex);
-        if (!matches) return '--:--';
-        const hours = parseInt(matches[5] || 0);
-        const minutes = parseInt(matches[6] || 0);
-        const seconds = Math.floor(parseFloat(matches[7] || 0));
-        let formattedTime = "";
-        if (hours > 0) {
-            formattedTime += `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        } else {
-            formattedTime += `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        }
-        return formattedTime;
-    },
-
-    async updatePlaylist() {
-        try {
-            showSnackbar('YouTubeから最新の曲を取得中...');
-            const latestVideos = await this.getLatestVideos(25); // 例: 25件取得
-            if (latestVideos.length === 0) {
-                showSnackbar('新しい曲は見つかりませんでした');
-                return;
-            }
-            const videoIds = latestVideos.map(video => video.id);
-            const videoDetails = await this.getVideoDetails(videoIds);
-            const videosWithDetails = latestVideos.map(video => {
-                const details = videoDetails.find(detail => detail.id === video.id) || {};
-                return { ...video, duration: details.duration || '--:--' };
-            });
-            const currentSongIds = new Set(appState.songs.map(s => s.id));
-            const newSongs = videosWithDetails.filter(video => !currentSongIds.has(video.id));
-            if (newSongs.length === 0) {
-                showSnackbar('新しい曲は見つかりませんでした');
-                return;
-            }
-            // 新しい曲をリストの先頭に追加
-            appState.songs.unshift(...newSongs.map(video => ({
-                id: video.id,
-                title: video.title,
-                duration: video.duration,
-                thumbnail: video.thumbnail
-            })));
-            // フィルターリストも更新
-            appState.filteredSongs = [...appState.songs];
-            renderPlaylist(); // プレイリストUIを更新
-            showSnackbar(`${newSongs.length}曲の新しい曲を追加しました`);
-        } catch (error) {
-            console.error('プレイリスト更新エラー:', error);
-            showSnackbar(`プレイリストの更新に失敗しました: ${error.message || '不明なエラー'}`);
-        }
-    },
-
-    startAutoSync(intervalMinutes = 60) {
-        console.log(`Starting auto-sync every ${intervalMinutes} minutes.`);
-        const intervalId = setInterval(() => {
-            console.log("Auto-sync triggered.");
-            this.updatePlaylist();
-        }, intervalMinutes * 60 * 1000);
-        return intervalId; // IDを返して後で停止できるようにする (今回は使わない)
-    }
-};
-     function setupYouTubeSync() { if (document.getElementById('youtube-sync-btn')) return; const syncButton = document.createElement('button'); syncButton.id = 'youtube-sync-btn'; syncButton.className = 'px-3 py-1 rounded-md text-sm focusable'; syncButton.style.backgroundColor = 'var(--primary-color)'; syncButton.style.color = 'white'; syncButton.innerHTML = '<i class="fab fa-youtube mr-1"></i> 新曲を同期'; const buttonContainer = document.querySelector('.player-main-column .flex.justify-end.mb-2.gap-2'); if (buttonContainer) { buttonContainer.prepend(syncButton); syncButton.addEventListener('click', () => { youtubeAPI.updatePlaylist(); }); console.log("YouTube Sync button added."); } else { console.error("Could not find button container to add YouTube Sync button."); } }
+     const youtubeAPI = { apiKey: 'AIzaSyCbzvjP9vFa5I8N1qLI5H9LUpYim0nkQS4', channelId: 'UCYAuSEKhuk3v4ZKzm5Lqb1Q', async getLatestVideos(maxResults = 15) { console.log(`Fetching latest ${maxResults} videos...`); try { const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${this.channelId}&maxResults=${maxResults}&order=date&type=video&key=${this.apiKey}`); if (!response.ok) { let errorMsg = `YouTube Search API error: ${response.status}`; try { const errorData = await response.json(); errorMsg = `YouTube Search API error: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`; } catch (e) {} throw new Error(errorMsg); } const data = await response.json(); if (!data.items) { console.warn("No items found in YouTube search response."); return []; } console.log(`Found ${data.items.length} videos from search.`); return data.items.map(item => ({ id: item.id.videoId, title: item.snippet.title, description: item.snippet.description, thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url, publishedAt: item.snippet.publishedAt, duration: null })); } catch (error) { console.error('YouTube Search API error:', error); showSnackbar('YouTube動画の取得に失敗しました'); return []; } }, async getVideoDetails(videoIds) { if (!videoIds || videoIds.length === 0) return []; console.log(`Fetching details for ${videoIds.length} video(s)...`); const MAX_IDS_PER_REQUEST = 50; let allDetails = []; for (let i = 0; i < videoIds.length; i += MAX_IDS_PER_REQUEST) { const chunkIds = videoIds.slice(i, i + MAX_IDS_PER_REQUEST); try { const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${chunkIds.join(',')}&key=${this.apiKey}`); if (!response.ok) { let errorMsg = `YouTube Videos API error: ${response.status}`; try { const errorData = await response.json(); errorMsg = `YouTube Videos API error: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`; } catch (e) {} throw new Error(errorMsg); } const data = await response.json(); if (data.items) { const chunkDetails = data.items.map(item => ({ id: item.id, duration: item.contentDetails?.duration ? this.convertDuration(item.contentDetails.duration) : '--:--', viewCount: item.statistics?.viewCount })); allDetails = allDetails.concat(chunkDetails); } } catch (error) { console.error(`YouTube Videos API error (chunk ${i / MAX_IDS_PER_REQUEST}):`, error); showSnackbar('動画詳細の一部の取得に失敗しました'); } } console.log(`Fetched details for ${allDetails.length} video(s).`); return allDetails; }, convertDuration(isoDuration) { const regex = /P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/; const matches = isoDuration.match(regex); if (!matches) return '--:--'; const hours = parseInt(matches[5] || 0); const minutes = parseInt(matches[6] || 0); const seconds = Math.floor(parseFloat(matches[7] || 0)); let formattedTime = ""; if (hours > 0) { formattedTime += `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`; } else { formattedTime += `${minutes}:${seconds.toString().padStart(2, '0')}`; } return formattedTime; }, async updatePlaylist() { try { showSnackbar('YouTubeから最新の曲を取得中...'); const latestVideos = await this.getLatestVideos(25); if (latestVideos.length === 0) { showSnackbar('新しい曲は見つかりませんでした'); return; } const videoIds = latestVideos.map(video => video.id); const videoDetails = await this.getVideoDetails(videoIds); const videosWithDetails = latestVideos.map(video => { const details = videoDetails.find(detail => detail.id === video.id) || {}; return { ...video, duration: details.duration || '--:--', }; }); const currentSongIds = new Set(appState.songs.map(s => s.id)); const newSongs = videosWithDetails.filter(video => !currentSongIds.has(video.id)); if (newSongs.length === 0) { showSnackbar('新しい曲は見つかりませんでした'); return; } appState.songs.unshift(...newSongs.map(video => ({ id: video.id, title: video.title, duration: video.duration, thumbnail: video.thumbnail }))); appState.filteredSongs = [...appState.songs]; renderPlaylist(); showSnackbar(`${newSongs.length}曲の新しい曲を追加しました`); } catch (error) { console.error('プレイリスト更新エラー:', error); showSnackbar(`プレイリストの更新に失敗しました: ${error.message || '不明なエラー'}`); } }, startAutoSync(intervalMinutes = 60) { console.log(`Starting auto-sync every ${intervalMinutes} minutes.`); const intervalId = setInterval(() => { console.log("Auto-sync triggered."); this.updatePlaylist(); }, intervalMinutes * 60 * 1000); return intervalId; } };
+    function setupYouTubeSync() { if (document.getElementById('youtube-sync-btn')) return; const syncButton = document.createElement('button'); syncButton.id = 'youtube-sync-btn'; syncButton.className = 'px-3 py-1 rounded-md text-sm focusable'; syncButton.style.backgroundColor = 'var(--primary-color)'; syncButton.style.color = 'white'; syncButton.innerHTML = '<i class="fab fa-youtube mr-1"></i> 新曲を同期'; const buttonContainer = document.querySelector('.player-main-column .flex.justify-end.mb-2.gap-2'); if (buttonContainer) { buttonContainer.prepend(syncButton); syncButton.addEventListener('click', () => { youtubeAPI.updatePlaylist(); }); console.log("YouTube Sync button added."); } else { console.error("Could not find button container to add YouTube Sync button."); } }
 
     // ==========================================================================
     // Offline Playback (Placeholder - Keep commented out if not using)
